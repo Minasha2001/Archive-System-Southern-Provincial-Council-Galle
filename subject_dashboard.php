@@ -1,7 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
 $currentUser = require_role($pdo, 'subject');
-$officerNameSafe = e(trim((string)$currentUser['full_name']) !== '' ? $currentUser['full_name'] : $currentUser['username']);
+$officerNameRaw = trim((string)$currentUser['full_name']) !== '' ? (string)$currentUser['full_name'] : (string)$currentUser['username'];
+$officerNameSafe = e($officerNameRaw);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -219,6 +220,10 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 .row-btn.restore i{color:#11704f}
 .row-btn.restore:hover{background:#11704f;border-color:#11704f;color:#fff}
 .row-btn.restore:hover i{color:#fff}
+.row-btn.print{border-color:#e8d9b0;background:var(--gold-soft);color:#8a6420}
+.row-btn.print i{color:#b07d1f}
+.row-btn.print:hover{background:#8a6420;border-color:#8a6420;color:#fff}
+.row-btn.print:hover i{color:#fff}
 .row-btn[disabled]{opacity:.45;cursor:not-allowed;pointer-events:none}
 
 /* Alerts + notes */
@@ -255,6 +260,11 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 .info-line{display:flex;flex-wrap:wrap;gap:8px}
 .info-line span{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;background:#fff;border:1px solid var(--line);color:#33466a;font-size:var(--fs-xs);font-weight:600}
 .info-line span i{color:var(--gold)}
+
+/* ----- View document dialog ----- */
+.dialog.doc{width:min(900px,100%);height:min(94vh,960px)}
+.doc-body{flex:1;min-height:0;padding:16px;background:#dfe5ef;display:flex;justify-content:center;overflow:auto}
+.doc-frame{width:100%;max-width:794px;height:100%;min-height:480px;border:0;background:#fff;box-shadow:0 6px 24px rgba(16,37,71,.22)}
 
 .footer{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;padding:16px 4px 0;border-top:1px dashed var(--rule);color:#8796ae;font-size:var(--fs-xs)}
 ::-webkit-scrollbar{width:10px;height:10px}
@@ -538,7 +548,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                         <div class="section-icon"><i class="fa-solid fa-table-list"></i></div>
                         <div>
                             <h2>Archive Search Results</h2>
-                            <p>All files added to the archive. You can edit the details or issue a file.</p>
+                            <p>All files added to the archive. You can view or edit the details, or print a file.</p>
                         </div>
                     </div>
                 </div>
@@ -755,6 +765,29 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
     </main>
 </div>
 
+<!-- VIEW FILE DETAILS DIALOG (read only) -->
+<div class="modal" id="viewModal" hidden>
+    <div class="dialog doc" role="dialog" aria-modal="true" aria-labelledby="viewTitle">
+        <div class="dialog-head">
+            <div class="dialog-title">
+                <div class="section-icon"><i class="fa-solid fa-eye"></i></div>
+                <div style="min-width:0">
+                    <h3 id="viewTitle">File Document</h3>
+                    <p id="viewSub"></p>
+                </div>
+            </div>
+            <button type="button" class="dialog-close" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="doc-body"><iframe class="doc-frame" id="viewFrame" title="Archive file document"></iframe></div>
+
+        <div class="dialog-foot">
+            <button type="button" class="btn btn-outline" data-close><i class="fa-solid fa-xmark"></i> Close</button>
+            <button type="button" class="btn btn-primary" id="viewPrint"><i class="fa-solid fa-print"></i> Print</button>
+        </div>
+    </div>
+</div>
+
 <!-- EDIT / SEND FOR APPROVAL DIALOG -->
 <div class="modal" id="editModal" hidden>
     <div class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="editTitle">
@@ -881,6 +914,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 <script>
 /* ===== DATA: loaded from the database through api.php ===== */
 const API = "api.php";
+const OFFICER_NAME = <?= json_encode($officerNameRaw, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;
 const deptLabels = {
     Institutions:"ආයතන(Institutions)",
     Councils:"සභා(Councils)",
@@ -1069,11 +1103,219 @@ function renderResults() {
             <td>${out ? '<span class="badge badge-out"><i class="fa-solid fa-file-export"></i> Issued</span>'
                       : '<span class="badge badge-in"><i class="fa-solid fa-box-archive"></i> In Archive</span>'}</td>
             <td><div class="action-cell">
-                <button type="button" class="row-btn view" data-edit="${escapeHTML(r.id)}"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
-                <button type="button" class="row-btn" data-issue="${escapeHTML(r.id)}" ${out ? "disabled" : ""}><i class="fa-solid fa-file-export"></i> Issue</button>
+                <button type="button" class="row-btn view" data-view="${escapeHTML(r.id)}"><i class="fa-solid fa-eye"></i> View</button>
+                <button type="button" class="row-btn" data-edit="${escapeHTML(r.id)}"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+                <button type="button" class="row-btn print" data-print="${escapeHTML(r.id)}"><i class="fa-solid fa-print"></i> Print</button>
             </div></td>
         </tr>`;
     }).join("");
+}
+
+/* ===== FILE DOCUMENT (the same document is used for View and Print) ===== */
+function buildRecordDocument(r, preview) {
+    const loan = openLoan(r.id);
+    const val = v => escapeHTML(v === "" || v === undefined || v === null ? "-" : v);
+
+    // Builds a numbered section with label/value pairs, two pairs per row.
+    let sectionNo = 0;
+    const section = (title, items) => {
+        sectionNo++;
+        let rows = "";
+        for (let i = 0; i < items.length; i += 2) {
+            const a = items[i], b = items[i + 1];
+            rows += `<tr><th>${escapeHTML(a[0])}</th><td${b ? "" : ' colspan="3"'}>${val(a[1])}</td>`
+                 + (b ? `<th>${escapeHTML(b[0])}</th><td>${val(b[1])}</td>` : "")
+                 + `</tr>`;
+        }
+        return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
+    };
+
+    const info = section("File Information", [
+        ["Department", deptLabels[r.department] || r.department],
+        ["Subject Number", r.subject],
+        ["File Number", r.fileNo],
+        ["Added Date", r.date],
+        ["File Start Date", r.start],
+        ["File End Date", r.end]
+    ]);
+
+    sectionNo++;
+    const pages = `<div class="sec">
+        <div class="sec-title"><span class="no">${sectionNo}</span>Page Details</div>
+        <div class="stats">
+            <div class="stat"><div class="n">${val(r.right)}</div><div class="t">Right Side</div></div>
+            <div class="stat"><div class="n">${val(r.left)}</div><div class="t">Left Side</div></div>
+            <div class="stat total"><div class="n">${val(r.pages)}</div><div class="t">Total Pages</div></div>
+        </div>
+    </div>`;
+
+    const issued = loan ? section("Issue Details", [
+        ["Taken By", loan.takenBy],
+        ["Date Taken", loan.takenDate]
+    ]) : "";
+
+    const statusChip = loan ? '<span class="chip out">Issued</span>' : '<span class="chip in">In Archive</span>';
+
+    const printedOn = new Date().toLocaleString("en-GB", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"});
+    const footer = preview ? "" : `<div class="foot-wrap">
+        <div class="foot">
+            <div class="sign"><div class="line">Subject Officer</div></div>
+            <div class="sign"><div class="line">Date</div></div>
+        </div>
+        <div class="meta">Printed by ${escapeHTML(OFFICER_NAME)} on ${escapeHTML(printedOn)}</div>
+    </div>`;
+
+    return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<base href="${escapeHTML(document.baseURI)}">
+<title>Archive File - ${escapeHTML(r.archive)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<style>
+@page{size:A4;margin:12mm}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Plus Jakarta Sans','Noto Sans Sinhala',Arial,sans-serif;color:#14233d;font-size:12.5px;line-height:1.55;margin:0;background:#fff}
+${preview ? "body{padding:26px 30px}" : ""}
+
+/* Double-line page frame */
+.sheet{border:2px solid #0b2146;padding:6px}
+.page{position:relative;border:1px solid #d4a24a;padding:24px 30px 22px;overflow:hidden}
+.page>*:not(.wm){position:relative;z-index:1}
+.wm{position:absolute;left:50%;top:52%;width:320px;max-width:60%;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
+@media print{.page{min-height:248mm;display:flex;flex-direction:column}}
+
+/* Letterhead */
+.letterhead{text-align:center}
+.letterhead img{height:76px;width:auto;margin-bottom:8px}
+.letterhead .si{font-family:'Noto Sans Sinhala','Plus Jakarta Sans',sans-serif;font-size:19px;font-weight:700;color:#0b2146;line-height:1.4}
+.letterhead .en{font-size:10.5px;font-weight:700;letter-spacing:2px;color:#44546f;margin-top:3px}
+.letterhead .sys{display:inline-block;margin-top:9px;padding:2px 16px;font-size:10.5px;font-weight:600;letter-spacing:.6px;color:#8a6420;border-top:1px solid #d4a24a;border-bottom:1px solid #d4a24a}
+.divider{display:flex;align-items:center;gap:10px;margin:14px 0 16px}
+.divider::before{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,#0b2146)}
+.divider::after{content:"";flex:1;height:1px;background:linear-gradient(270deg,transparent,#0b2146)}
+.divider i{display:block;width:7px;height:7px;background:#d4a24a;transform:rotate(45deg)}
+
+/* Title */
+.doc-title{text-align:center;margin-bottom:14px}
+h1{font-family:'Libre Baskerville',Georgia,serif;font-size:18px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#0b2146;margin:0}
+.subtitle{font-size:11px;color:#6a7890;margin-top:3px}
+
+/* Key facts bar */
+.keybar{display:grid;grid-template-columns:repeat(3,1fr);margin-bottom:14px;border:1px solid #cdd6e6;border-top:3px solid #0b2146;background:#f8f9fc}
+.keybar>div{padding:9px 14px;text-align:center}
+.keybar>div+div{border-left:1px solid #cdd6e6}
+.k-lbl{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6a7890}
+.k-val{margin-top:2px;font-size:16px;font-weight:700;color:#16386a;overflow-wrap:anywhere}
+.chip{display:inline-block;margin-top:2px;padding:2px 14px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid transparent}
+.chip.in{background:#e3f6ee;color:#11704f;border-color:#c5ead9}
+.chip.out{background:#fbf3e1;color:#8a6420;border-color:#f0dcb0}
+
+/* File name */
+.name-box{margin-bottom:16px;padding:6px 2px 10px;border-bottom:1px solid #cdd6e6}
+.name-box .lbl{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6a7890}
+.name-box .nm{font-size:16px;font-weight:700;color:#0b2146;overflow-wrap:anywhere}
+
+/* Sections */
+.sec{margin-bottom:16px;break-inside:avoid;page-break-inside:avoid}
+.sec-title{display:flex;align-items:center;gap:10px;margin-bottom:2px;padding-bottom:5px;border-bottom:2px solid #d4a24a;font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:#0b2146}
+.sec-title .no{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#0b2146;color:#fff;font-size:10px;letter-spacing:0}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th,td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid #e3e8f2;overflow-wrap:anywhere}
+th{width:19%;font-size:11px;font-weight:600;color:#6a7890}
+td{width:31%;font-weight:600;color:#14233d}
+td[colspan="3"]{width:81%}
+
+/* Page statistics */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.stat{padding:9px 10px;text-align:center;border:1px solid #cdd6e6;background:#fff}
+.stat .n{font-size:20px;font-weight:700;line-height:1.2;color:#16386a}
+.stat .t{font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6a7890}
+.stat.total{background:#0b2146;border-color:#0b2146}
+.stat.total .n{color:#fff}
+.stat.total .t{color:#f0cf8a}
+
+/* Print-only footer */
+.foot-wrap{margin-top:auto;padding-top:30px}
+.foot{display:flex;justify-content:space-between;gap:30px;font-size:12px}
+.sign{flex:1;text-align:center}
+.sign .line{margin-top:36px;padding-top:4px;border-top:1px solid #14233d}
+.meta{margin-top:22px;font-size:11px;color:#6a7890;text-align:right}
+</style></head>
+<body>
+<div class="sheet"><div class="page">
+    <img class="wm" src="logo.webp" alt="" onerror="this.style.display='none'">
+
+    <div class="letterhead">
+        <img src="logo.webp" alt="" onerror="this.style.display='none'">
+        <div class="si">දකුණු පළාත් සභා ලේකම් කාර්යාලය</div>
+        <div class="en">SOUTHERN PROVINCIAL COUNCIL SECRETARIAT</div>
+        <div class="sys">Archives File Management System</div>
+    </div>
+    <div class="divider"><i></i></div>
+
+    <div class="doc-title">
+        <h1>Archive File Record</h1>
+        <div class="subtitle">Official record of an archived file</div>
+    </div>
+
+    <div class="keybar">
+        <div><div class="k-lbl">Archive Number</div><div class="k-val">${val(r.archive)}</div></div>
+        <div><div class="k-lbl">Archive Tree Number</div><div class="k-val">${val(r.rack)}</div></div>
+        <div><div class="k-lbl">Status</div>${statusChip}</div>
+    </div>
+
+    <div class="name-box">
+        <div class="lbl">File Name</div>
+        <div class="nm">${val(r.name)}</div>
+    </div>
+
+    ${info}
+    ${pages}
+    ${issued}
+    ${footer}
+</div></div>
+</body></html>`;
+}
+
+/* ===== VIEW: shows the document on screen ===== */
+function openView(id) {
+    const r = recordById(id);
+    if (!r) return;
+
+    $("viewModal").dataset.id = r.id;
+    $("viewSub").textContent = (r.archive || "") + " | " + (r.name || "");
+    $("viewFrame").srcdoc = buildRecordDocument(r, true);
+    showModal("viewModal");
+}
+
+$("viewPrint").addEventListener("click", function() {
+    const id = $("viewModal").dataset.id;
+    if (id) printRecord(id);
+});
+
+/* ===== PRINT: prints the same document ===== */
+function printRecord(id) {
+    const r = recordById(id);
+    if (!r) return;
+
+    const old = document.getElementById("printFrame");
+    if (old) old.remove();
+
+    const frame = document.createElement("iframe");
+    frame.id = "printFrame";
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    frame.onload = function() {
+        setTimeout(function() {
+            try {
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+            } catch (err) {
+                alert("Could not open the print dialog: " + err.message);
+            }
+        }, 400);
+    };
+    frame.srcdoc = buildRecordDocument(r, false);
+    document.body.appendChild(frame);
 }
 
 /* ===== ISSUE FORM ===== */
@@ -1308,12 +1550,13 @@ function showModal(id) {
     document.body.style.overflow = "hidden";
 }
 function closeModals() {
+    $("viewModal").hidden = true;
     $("editModal").hidden = true;
     $("returnModal").hidden = true;
     document.body.style.overflow = "";
 }
 document.querySelectorAll("[data-close]").forEach(btn => btn.addEventListener("click", closeModals));
-["editModal", "returnModal"].forEach(id => {
+["viewModal", "editModal", "returnModal"].forEach(id => {
     $(id).addEventListener("click", e => { if (e.target === $(id)) closeModals(); });
 });
 
@@ -1326,6 +1569,12 @@ $("pendingBody").addEventListener("click", function(e) {
 });
 
 $("resultsBody").addEventListener("click", function(e) {
+    const view = e.target.closest("[data-view]");
+    if (view) {
+        openView(view.dataset.view);
+        return;
+    }
+
     const edit = e.target.closest("[data-edit]");
     if (edit) {
         const rec = recordById(edit.dataset.edit);
@@ -1333,11 +1582,9 @@ $("resultsBody").addEventListener("click", function(e) {
         return;
     }
 
-    const issue = e.target.closest("[data-issue]");
-    if (issue && !issue.disabled) {
-        renderIssueSelect(issue.dataset.issue);
-        $("issueSection").scrollIntoView({behavior: "smooth", block: "start"});
-        setTimeout(() => $("takenBy").focus(), 450);
+    const print = e.target.closest("[data-print]");
+    if (print) {
+        printRecord(print.dataset.print);
     }
 });
 

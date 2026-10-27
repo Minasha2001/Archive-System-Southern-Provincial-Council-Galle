@@ -1,7 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
 $currentUser = require_role($pdo, 'admin');
-$adminName = e(trim((string)$currentUser['full_name']) !== '' ? $currentUser['full_name'] : $currentUser['username']);
+$adminNameRaw = trim((string)$currentUser['full_name']) !== '' ? (string)$currentUser['full_name'] : (string)$currentUser['username'];
+$adminName = e($adminNameRaw);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -288,8 +289,6 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-thumb{background:#c3cfe3;border-radius:10px;border:2px solid transparent;background-clip:content-box}
 
-/* Sync badge (shown only when the database is not connected) */
-
 /* Desktop collapse */
 @media (min-width:701px){
     .app.sidebar-collapsed .sidebar{width:0}
@@ -372,6 +371,12 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
     .print-only table{min-width:0;white-space:normal;font-size:10px}
     .print-only th,.print-only td{border:1px solid #999;padding:5px 6px;color:#000}
 }
+
+/* ===== File record preview (View button) ===== */
+.dialog.record{width:min(900px,100%);height:min(94vh,960px)}
+#docViewer .doc-body{padding:16px;background:#dfe5ef;align-items:stretch}
+#docViewer .doc-body iframe.doc-frame{width:100%;max-width:794px;min-height:480px;border:0;background:#fff;box-shadow:0 6px 24px rgba(16,37,71,.22)}
+@media (max-width:700px){#docViewer .doc-body{padding:8px}}
 </style>
 </head>
 
@@ -1000,22 +1005,22 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
     </div>
 </div>
 
-<!-- DOCUMENT VIEWER -->
+<!-- DOCUMENT VIEWER (file record) -->
 <div class="modal" id="docViewer" hidden>
-    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="docTitle">
+    <div class="dialog record" role="dialog" aria-modal="true" aria-labelledby="docTitle">
         <div class="dialog-head">
             <div class="dialog-title">
                 <div class="section-icon"><i class="fa-solid fa-file-lines"></i></div>
-                <div style="min-width:0"><h3 id="docTitle"></h3><p id="docSub"></p></div>
+                <div style="min-width:0"><h3 id="docTitle">File Document</h3><p id="docSub"></p></div>
             </div>
             <button type="button" class="dialog-close" data-close="docViewer" aria-label="Close viewer"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="doc-meta" id="docMeta"></div>
-        <div class="doc-body" id="docBody"></div>
+        <div class="doc-body" id="docBody">
+            <iframe class="doc-frame" id="docFrame" title="Archive file document"></iframe>
+        </div>
         <div class="dialog-foot">
-            <a class="btn btn-outline" id="docOpen" href="#" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square"></i> Open in New Tab</a>
-            <a class="btn btn-outline" id="docDownload" href="#" download><i class="fa-solid fa-download"></i> Download</a>
-            <button type="button" class="btn btn-primary" data-close="docViewer"><i class="fa-solid fa-xmark"></i> Close</button>
+            <button type="button" class="btn btn-outline" data-close="docViewer"><i class="fa-solid fa-xmark"></i> Close</button>
+            <button type="button" class="btn btn-primary" id="docPrintBtn"><i class="fa-solid fa-print"></i> Print</button>
         </div>
     </div>
 </div>
@@ -1035,6 +1040,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 <script>
 /* ===== DATA: database through api.php ===== */
 const API = "api.php";
+const USER_NAME = <?= json_encode($adminNameRaw, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;
 const deptLabels = {Institutions:"ආයතන(Institutions)",Councils:"සභා(Councils)",Accounts:"ගිණුම්(Accounts)"};
 const roleLabels = {user:"User",subject:"Subject Officer",admin:"Administrator"};
 
@@ -1228,7 +1234,7 @@ function renderApprovals() {
 $("approvalFilter").addEventListener("input", renderApprovals);
 
 $("approvalBody").addEventListener("click", e => {
-    // "View" button: open the document in the full viewer
+    // "View" button: open the file record in the viewer
     const viewBtn = e.target.closest("button[data-apview]");
     if (viewBtn) {
         const item = approvals.find(x => String(x.id) === viewBtn.dataset.apview);
@@ -1236,7 +1242,7 @@ $("approvalBody").addEventListener("click", e => {
         return;
     }
 
-    // "Review" button: open the review dialog (with document preview)
+    // "Approve" button: open the review dialog (with document preview)
     const btn = e.target.closest("button[data-ap]");
     if (!btn) return;
     fileInReview = approvals.find(f => String(f.id) === btn.dataset.ap);
@@ -1542,14 +1548,13 @@ $("printDeleted").addEventListener("click", () => {
     window.print();
 });
 
-/* ===== DOCUMENT VIEWER ===== */
-const docBody = $("docBody");
+/* ===== DOCUMENT HELPERS (used by the review dialog preview) ===== */
 function fileExt(name) { return name.split(".").pop().toLowerCase(); }
 function docFallback(message) {
     return `<div class="doc-fallback"><i class="fa-regular fa-file-excel"></i><p><strong>Preview not available</strong></p><p>${escapeHTML(message)}</p></div>`;
 }
 
-// Builds the preview markup for a document URL (used by the review dialog)
+// Builds the preview markup for a submitted document URL (used by the review dialog)
 function docHTML(url, name) {
     if (!url) return docFallback("No document is attached to this file.");
     const ext = fileExt(url), safeUrl = encodeURI(url);
@@ -1558,44 +1563,206 @@ function docHTML(url, name) {
     return docFallback("Word and Excel files cannot be previewed in the browser. Please download the file to open it.");
 }
 
-// Opens a pending-approval file in the full-screen viewer
+// Pending-approval file: shows the same file record document
 function viewApprovalDoc(f) {
-    openViewer({...f, date: f.sentDate, fileUrl: f.fileUrl || ""});
+    openViewer({...f, date: f.sentDate});
 }
+
+/* ===== FILE RECORD DOCUMENT (shown by the View button, printed by its Print button) ===== */
+/* preview = true: no "Printed by" footer */
+function buildRecordDocument(r, preview) {
+    const has = v => v !== undefined && v !== null && v !== "";
+    const val = v => escapeHTML(has(v) ? v : "-");
+
+    // Builds a numbered section with label/value pairs, two pairs per row.
+    let sectionNo = 0;
+    const section = (title, items) => {
+        sectionNo++;
+        let rows = "";
+        for (let i = 0; i < items.length; i += 2) {
+            const a = items[i], b = items[i + 1];
+            rows += `<tr><th>${escapeHTML(a[0])}</th><td${b ? "" : ' colspan="3"'}>${val(a[1])}</td>`
+                 + (b ? `<th>${escapeHTML(b[0])}</th><td>${val(b[1])}</td>` : "")
+                 + `</tr>`;
+        }
+        return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
+    };
+
+    // Key facts bar: Archive Number always, Archive Tree Number when the record has one
+    const keys = [["Archive Number", r.archive]];
+    if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
+    const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
+        + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
+        + `</div>`;
+
+    const info = section("File Information", [
+        ["Department", deptLabels[r.department] || r.department],
+        ["Subject Number", r.subject],
+        ["File Number", r.fileNo],
+        ["Added Date", r.date],
+        ["File Start Date", r.start],
+        ["File End Date", r.end]
+    ]);
+
+    // Page details: Right/Left Side are shown only when the record has them
+    const stats = [];
+    if (has(r.right)) stats.push(["Right Side", r.right, false]);
+    if (has(r.left)) stats.push(["Left Side", r.left, false]);
+    stats.push(["Total Pages", r.pages, true]);
+    sectionNo++;
+    const pages = `<div class="sec">
+        <div class="sec-title"><span class="no">${sectionNo}</span>Page Details</div>
+        <div class="stats" style="grid-template-columns:repeat(${stats.length},1fr)">`
+        + stats.map(s => `<div class="stat${s[2] ? " total" : ""}"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
+        + `</div></div>`;
+
+    const printedOn = new Date().toLocaleString("en-GB", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"});
+    const footer = preview ? "" : `<div class="foot-wrap">
+        <div class="meta">Printed by ${escapeHTML(USER_NAME)} on ${escapeHTML(printedOn)}</div>
+    </div>`;
+
+    return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<base href="${escapeHTML(document.baseURI)}">
+<title>Archive File - ${escapeHTML(r.archive)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<style>
+@page{size:A4;margin:12mm}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Plus Jakarta Sans','Noto Sans Sinhala',Arial,sans-serif;color:#14233d;font-size:12.5px;line-height:1.55;margin:0;background:#fff}
+${preview ? "body{padding:26px 30px}" : ""}
+
+/* Double-line page frame */
+.sheet{border:2px solid #0b2146;padding:6px}
+.page{position:relative;border:1px solid #d4a24a;padding:24px 30px 22px;overflow:hidden}
+.page>*:not(.wm){position:relative;z-index:1}
+.wm{position:absolute;left:50%;top:52%;width:320px;max-width:60%;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
+@media print{.page{min-height:248mm;display:flex;flex-direction:column}}
+
+/* Letterhead */
+.letterhead{text-align:center}
+.letterhead img{height:76px;width:auto;margin-bottom:8px}
+.letterhead .si{font-family:'Noto Sans Sinhala','Plus Jakarta Sans',sans-serif;font-size:19px;font-weight:700;color:#0b2146;line-height:1.4}
+.letterhead .en{font-size:10.5px;font-weight:700;letter-spacing:2px;color:#44546f;margin-top:3px}
+.letterhead .sys{display:inline-block;margin-top:9px;padding:2px 16px;font-size:10.5px;font-weight:600;letter-spacing:.6px;color:#8a6420;border-top:1px solid #d4a24a;border-bottom:1px solid #d4a24a}
+.divider{display:flex;align-items:center;gap:10px;margin:14px 0 16px}
+.divider::before{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,#0b2146)}
+.divider::after{content:"";flex:1;height:1px;background:linear-gradient(270deg,transparent,#0b2146)}
+.divider i{display:block;width:7px;height:7px;background:#d4a24a;transform:rotate(45deg)}
+
+/* Title */
+.doc-title{text-align:center;margin-bottom:14px}
+h1{font-family:'Libre Baskerville',Georgia,serif;font-size:18px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#0b2146;margin:0}
+.subtitle{font-size:11px;color:#6a7890;margin-top:3px}
+
+/* Key facts bar */
+.keybar{display:grid;margin-bottom:14px;border:1px solid #cdd6e6;border-top:3px solid #0b2146;background:#f8f9fc}
+.keybar>div{padding:9px 14px;text-align:center}
+.keybar>div+div{border-left:1px solid #cdd6e6}
+.k-lbl{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6a7890}
+.k-val{margin-top:2px;font-size:16px;font-weight:700;color:#16386a;overflow-wrap:anywhere}
+
+/* File name */
+.name-box{margin-bottom:16px;padding:6px 2px 10px;border-bottom:1px solid #cdd6e6}
+.name-box .lbl{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6a7890}
+.name-box .nm{font-size:16px;font-weight:700;color:#0b2146;overflow-wrap:anywhere}
+
+/* Sections */
+.sec{margin-bottom:16px;break-inside:avoid;page-break-inside:avoid}
+.sec-title{display:flex;align-items:center;gap:10px;margin-bottom:2px;padding-bottom:5px;border-bottom:2px solid #d4a24a;font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:#0b2146}
+.sec-title .no{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#0b2146;color:#fff;font-size:10px;letter-spacing:0}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th,td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid #e3e8f2;overflow-wrap:anywhere}
+th{width:19%;font-size:11px;font-weight:600;color:#6a7890}
+td{width:31%;font-weight:600;color:#14233d}
+td[colspan="3"]{width:81%}
+
+/* Page statistics */
+.stats{display:grid;gap:10px;margin-top:10px}
+.stat{padding:9px 10px;text-align:center;border:1px solid #cdd6e6;background:#fff}
+.stat .n{font-size:20px;font-weight:700;line-height:1.2;color:#16386a}
+.stat .t{font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6a7890}
+.stat.total{background:#0b2146;border-color:#0b2146}
+.stat.total .n{color:#fff}
+.stat.total .t{color:#f0cf8a}
+
+/* Print-only footer */
+.foot-wrap{margin-top:auto;padding-top:30px}
+.meta{font-size:11px;color:#6a7890;text-align:right}
+</style></head>
+<body>
+<div class="sheet"><div class="page">
+    <img class="wm" src="logo.webp" alt="" onerror="this.style.display='none'">
+
+    <div class="letterhead">
+        <img src="logo.webp" alt="" onerror="this.style.display='none'">
+        <div class="si">දකුණු පළාත් සභා ලේකම් කාර්යාලය</div>
+        <div class="en">SOUTHERN PROVINCIAL COUNCIL SECRETARIAT</div>
+        <div class="sys">Archives File Management System</div>
+    </div>
+    <div class="divider"><i></i></div>
+
+    <div class="doc-title">
+        <h1>Archive File Record</h1>
+        <div class="subtitle">Official record of an archived file</div>
+    </div>
+
+    ${keybar}
+
+    <div class="name-box">
+        <div class="lbl">File Name</div>
+        <div class="nm">${val(r.name)}</div>
+    </div>
+
+    ${info}
+    ${pages}
+    ${footer}
+</div></div>
+</body></html>`;
+}
+
+/* ===== VIEW BUTTON: shows the file record ===== */
+const docFrame = $("docFrame");
+let viewedFile = null;
 
 function openViewer(file) {
-    const url = file.fileUrl || "";
-    const ext = fileExt(url);
-    const safeUrl = encodeURI(url);
-
-    $("docTitle").textContent = file.name;
-    $("docSub").textContent = (deptLabels[file.department] || file.department) + " | " + file.archive;
-    $("docMeta").innerHTML = [
-        ["fa-solid fa-hashtag", "Subject: " + file.subject],
-        ["fa-regular fa-file", "File No: " + file.fileNo],
-        ["fa-solid fa-box-archive", "Archive No: " + file.archive],
-        ["fa-regular fa-calendar-days", file.start + " to " + file.end],
-        ["fa-solid fa-copy", file.pages + " pages"],
-        ["fa-regular fa-clock", "Added: " + file.date]
-    ].map(m => `<span><i class="${m[0]}"></i>${escapeHTML(m[1])}</span>`).join("");
-
-    if (!url) docBody.innerHTML = docFallback("No document is attached to this archive record.");
-    else if (ext === "pdf") docBody.innerHTML = `<object data="${safeUrl}" type="application/pdf">${docFallback("The PDF could not be loaded here. Use Open in New Tab or Download.")}</object>`;
-    else if (["jpg", "jpeg", "png"].includes(ext)) {
-        docBody.innerHTML = `<img src="${safeUrl}" alt="${escapeHTML(file.name)}">`;
-        docBody.querySelector("img").onerror = () => { docBody.innerHTML = docFallback("The image could not be loaded."); };
-    } else docBody.innerHTML = docFallback("Word and Excel files cannot be previewed in the browser. Please download the file to open it.");
-
-    $("docOpen").hidden = $("docDownload").hidden = !url;
-    $("docOpen").href = $("docDownload").href = safeUrl || "#";
+    viewedFile = file;
+    $("docSub").textContent = (file.archive || "") + " | " + (file.name || "");
+    docFrame.srcdoc = buildRecordDocument(file, true);
     openModal("docViewer");
 }
+
+/* Print the record that is open in the viewer */
+function printViewedFile() {
+    if (!viewedFile) return;
+
+    const old = document.getElementById("printFrame");
+    if (old) old.remove();
+
+    const frame = document.createElement("iframe");
+    frame.id = "printFrame";
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    frame.onload = function() {
+        setTimeout(function() {
+            try {
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+            } catch (err) {
+                toast("Could not open the print dialog: " + err.message, true);
+            }
+        }, 400);
+    };
+    frame.srcdoc = buildRecordDocument(viewedFile, false);
+    document.body.appendChild(frame);
+}
+$("docPrintBtn").addEventListener("click", printViewedFile);
 
 /* ===== MODALS ===== */
 function openModal(id) { $(id).hidden = false; document.body.style.overflow = "hidden"; }
 function closeModal(id) {
     $(id).hidden = true;
-    if (id === "docViewer") docBody.innerHTML = "";
+    if (id === "docViewer") { docFrame.srcdoc = ""; viewedFile = null; }
     if (id === "approvalModal") $("apPreview").innerHTML = "";
     if (document.querySelectorAll(".modal:not([hidden])").length === 0) document.body.style.overflow = "";
 }
