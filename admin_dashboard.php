@@ -1627,17 +1627,17 @@ function buildRecordDocument(r, preview) {
 <title>Archive File - ${escapeHTML(r.archive)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
 <style>
-@page{size:A4;margin:12mm}
+@page{size:A4;margin:0}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 body{font-family:'Plus Jakarta Sans','Noto Sans Sinhala',Arial,sans-serif;color:#14233d;font-size:12.5px;line-height:1.55;margin:0;background:#fff}
-${preview ? "body{padding:26px 30px}" : ""}
+${preview ? "body{padding:26px 30px}" : "body{padding:12mm}"}
 
 /* Double-line page frame */
 .sheet{border:2px solid #0b2146;padding:6px}
 .page{position:relative;border:1px solid #d4a24a;padding:24px 30px 22px;overflow:hidden}
 .page>*:not(.wm){position:relative;z-index:1}
 .wm{position:absolute;left:50%;top:52%;width:320px;max-width:60%;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
-@media print{.page{min-height:248mm;display:flex;flex-direction:column}}
+@media print{.page{min-height:265mm;display:flex;flex-direction:column}}
 
 /* Letterhead */
 .letterhead{text-align:center}
