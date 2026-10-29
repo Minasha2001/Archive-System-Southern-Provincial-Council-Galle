@@ -1156,15 +1156,6 @@ function buildRecordDocument(r, preview) {
 
     const statusChip = loan ? '<span class="chip out">Issued</span>' : '<span class="chip in">In Archive</span>';
 
-    const printedOn = new Date().toLocaleString("en-GB", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"});
-    const footer = preview ? "" : `<div class="foot-wrap">
-        <div class="foot">
-            <div class="sign"><div class="line">Subject Officer</div></div>
-            <div class="sign"><div class="line">Date</div></div>
-        </div>
-        <div class="meta">Printed by ${escapeHTML(OFFICER_NAME)} on ${escapeHTML(printedOn)}</div>
-    </div>`;
-
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <base href="${escapeHTML(document.baseURI)}">
@@ -1181,7 +1172,7 @@ ${preview ? "body{padding:26px 30px}" : ""}
 .page{position:relative;border:1px solid #d4a24a;padding:24px 30px 22px;overflow:hidden}
 .page>*:not(.wm){position:relative;z-index:1}
 .wm{position:absolute;left:50%;top:52%;width:320px;max-width:60%;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
-@media print{.page{min-height:248mm;display:flex;flex-direction:column}}
+@media print{.page{min-height:248mm}}
 
 /* Letterhead */
 .letterhead{text-align:center}
@@ -1232,13 +1223,6 @@ td[colspan="3"]{width:81%}
 .stat.total{background:#0b2146;border-color:#0b2146}
 .stat.total .n{color:#fff}
 .stat.total .t{color:#f0cf8a}
-
-/* Print-only footer */
-.foot-wrap{margin-top:auto;padding-top:30px}
-.foot{display:flex;justify-content:space-between;gap:30px;font-size:12px}
-.sign{flex:1;text-align:center}
-.sign .line{margin-top:36px;padding-top:4px;border-top:1px solid #14233d}
-.meta{margin-top:22px;font-size:11px;color:#6a7890;text-align:right}
 </style></head>
 <body>
 <div class="sheet"><div class="page">
@@ -1271,7 +1255,6 @@ td[colspan="3"]{width:81%}
     ${info}
     ${pages}
     ${issued}
-    ${footer}
 </div></div>
 </body></html>`;
 }
