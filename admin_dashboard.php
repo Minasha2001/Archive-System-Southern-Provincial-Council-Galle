@@ -1569,7 +1569,7 @@ function viewApprovalDoc(f) {
 }
 
 /* ===== FILE RECORD DOCUMENT (shown by the View button, printed by its Print button) ===== */
-/* preview = true: no "Printed by" footer */
+/* preview = true: on-screen viewer padding; false: print layout (A4 margins) */
 function buildRecordDocument(r, preview) {
     const has = v => v !== undefined && v !== null && v !== "";
     const val = v => escapeHTML(has(v) ? v : "-");
@@ -1615,11 +1615,6 @@ function buildRecordDocument(r, preview) {
         <div class="stats" style="grid-template-columns:repeat(${stats.length},1fr)">`
         + stats.map(s => `<div class="stat${s[2] ? " total" : ""}"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
         + `</div></div>`;
-
-    const printedOn = new Date().toLocaleString("en-GB", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"});
-    const footer = preview ? "" : `<div class="foot-wrap">
-        <div class="meta">Printed by ${escapeHTML(USER_NAME)} on ${escapeHTML(printedOn)}</div>
-    </div>`;
 
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
@@ -1685,10 +1680,6 @@ td[colspan="3"]{width:81%}
 .stat.total{background:#0b2146;border-color:#0b2146}
 .stat.total .n{color:#fff}
 .stat.total .t{color:#f0cf8a}
-
-/* Print-only footer */
-.foot-wrap{margin-top:auto;padding-top:30px}
-.meta{font-size:11px;color:#6a7890;text-align:right}
 </style></head>
 <body>
 <div class="sheet"><div class="page">
@@ -1716,7 +1707,6 @@ td[colspan="3"]{width:81%}
 
     ${info}
     ${pages}
-    ${footer}
 </div></div>
 </body></html>`;
 }
