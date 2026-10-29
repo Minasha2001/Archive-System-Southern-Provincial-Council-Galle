@@ -579,11 +579,11 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
     border-radius:6px;
 }
 
-/* ----- "Sent to Subject Officer" status as a red rubber stamp ----- */
+/* ----- "Sent to Subject Officer" status as a red rubber stamp (displayed straight, no rotation) ----- */
 .status-badge{
     font-family:var(--serif);font-size:10px;font-weight:700;
     color:#a1303f;background:transparent;border:2px solid #b3414f;border-radius:6px;
-    padding:3px 10px;transform:rotate(-3deg);opacity:.9;
+    padding:3px 10px;opacity:.9;transform:none;
     box-shadow:inset 0 0 0 1px rgba(179,65,79,.25);
 }
 
