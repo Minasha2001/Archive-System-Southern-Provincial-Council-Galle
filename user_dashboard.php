@@ -663,6 +663,19 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 #passwordSection{scroll-margin-top:90px}
 .nav-link.active{color:#fff;font-weight:700;background:linear-gradient(90deg,rgba(212,162,74,.30),rgba(255,255,255,.06));box-shadow:inset 0 0 0 1px rgba(212,162,74,.28)}
 .nav-link.active i{color:var(--gold-2)}
+
+/* ----- Change-password visibility toggles ----- */
+.password-input-wrap{gap:10px}
+.password-input-wrap input{flex:1;min-width:0}
+.password-toggle{
+    width:30px;height:30px;flex:0 0 30px;display:inline-grid;place-items:center;
+    border:0;border-radius:7px;background:transparent;color:#6a7890;
+    cursor:pointer;padding:0;transition:background .2s,color .2s;
+}
+.password-toggle:hover{background:#e9eff8;color:var(--navy)}
+.password-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.password-toggle i{font-size:14px}
+
 </style>
 </head>
 
@@ -1105,15 +1118,15 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                     <div class="password-grid">
                         <div class="field">
                             <label for="currentPassword">Current Password</label>
-                            <div class="input-wrap"><i class="fa-solid fa-lock"></i><input type="password" id="currentPassword" placeholder="Enter current password..." autocomplete="current-password" required></div>
+                            <div class="input-wrap password-input-wrap"><i class="fa-solid fa-lock"></i><input type="password" id="currentPassword" placeholder="Enter current password..." autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Show current password" aria-pressed="false" data-target="currentPassword"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i></button></div>
                         </div>
                         <div class="field">
                             <label for="newPassword">New Password</label>
-                            <div class="input-wrap"><i class="fa-solid fa-key"></i><input type="password" id="newPassword" placeholder="At least 6 characters..." autocomplete="new-password" minlength="6" required></div>
+                            <div class="input-wrap password-input-wrap"><i class="fa-solid fa-key"></i><input type="password" id="newPassword" placeholder="At least 6 characters..." autocomplete="new-password" minlength="6" required><button type="button" class="password-toggle" aria-label="Show new password" aria-pressed="false" data-target="newPassword"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i></button></div>
                         </div>
                         <div class="field">
                             <label for="confirmPassword">Confirm New Password</label>
-                            <div class="input-wrap"><i class="fa-solid fa-key"></i><input type="password" id="confirmPassword" placeholder="Re-enter new password..." autocomplete="new-password" minlength="6" required></div>
+                            <div class="input-wrap password-input-wrap"><i class="fa-solid fa-key"></i><input type="password" id="confirmPassword" placeholder="Re-enter new password..." autocomplete="new-password" minlength="6" required><button type="button" class="password-toggle" aria-label="Show confirm new password" aria-pressed="false" data-target="confirmPassword"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i></button></div>
                         </div>
                     </div>
 
@@ -1543,6 +1556,9 @@ td[colspan="3"]{width:81%}
     ${location}
     ${pages}
 </div></div>
+
+
+
 </body></html>`;
 }
 
@@ -1894,9 +1910,72 @@ profilePopover.querySelectorAll('a[href="#passwordSection"]').forEach(link => {
     });
 });
 
+
+/* Password visibility is handled by the independent script after this script. */
+
 /* ===== INITIAL LOAD ===== */
 loadState();
 updateNavFromScroll();
+</script>
+
+<!-- Independent password visibility handler: works separately from the dashboard script. -->
+<script>
+(function () {
+    function setPasswordVisibility(button) {
+        var targetId = button.getAttribute('data-target');
+        var input = document.getElementById(targetId);
+        var icon = button.querySelector('i');
+        if (!input || !icon) return;
+
+        var willShow = input.type === 'password';
+        input.type = willShow ? 'text' : 'password';
+
+        icon.classList.remove('fa-eye', 'fa-eye-slash');
+        icon.classList.add(willShow ? 'fa-eye' : 'fa-eye-slash');
+
+        var labels = {
+            currentPassword: 'current password',
+            newPassword: 'new password',
+            confirmPassword: 'confirm new password'
+        };
+        var label = labels[targetId] || 'password';
+        button.setAttribute('aria-pressed', willShow ? 'true' : 'false');
+        button.setAttribute('aria-label', (willShow ? 'Hide ' : 'Show ') + label);
+    }
+
+    // Event delegation means each of the three eye buttons is handled independently.
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('.password-toggle[data-target]');
+        if (!button) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setPasswordVisibility(button);
+    });
+
+    // Clear Form and successful form resets return every password field to hidden mode.
+    var passwordForm = document.getElementById('passwordForm');
+    if (passwordForm) {
+        passwordForm.addEventListener('reset', function () {
+            window.setTimeout(function () {
+                document.querySelectorAll('.password-toggle[data-target]').forEach(function (button) {
+                    var input = document.getElementById(button.getAttribute('data-target'));
+                    var icon = button.querySelector('i');
+                    if (!input || !icon) return;
+                    input.type = 'password';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                    button.setAttribute('aria-pressed', 'false');
+                    var labels = {
+                        currentPassword: 'current password',
+                        newPassword: 'new password',
+                        confirmPassword: 'confirm new password'
+                    };
+                    button.setAttribute('aria-label', 'Show ' + (labels[input.id] || 'password'));
+                });
+            }, 0);
+        });
+    }
+})();
 </script>
 
 </body>
