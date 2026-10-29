@@ -31,6 +31,10 @@ CREATE TABLE users (
 -- status: pending -> subject officer -> waiting_approval -> admin -> active
 --         rejected = admin විසින් subject officer වෙත ආපසු යැවූ
 --         deleted  = admin විසින් ලේඛනාගාරයෙන් ඉවත් කළ
+--
+-- rack_no                          = Archive Tree Number (subject officer විසින් ලබා දෙන, e.g. R-001)
+-- loc_rack_no / loc_row / loc_section = File Location (user විසින් submit කරන විට ඇතුළත් කරන
+--                                       Rack No, Row, සහ Section: I | II | III)
 CREATE TABLE archive_files (
     id             INT AUTO_INCREMENT PRIMARY KEY,
     submitted_by   INT NOT NULL,
@@ -50,6 +54,9 @@ CREATE TABLE archive_files (
     archive_no     VARCHAR(60) NULL UNIQUE,
     archive_number VARCHAR(60) NULL UNIQUE,
     rack_no        VARCHAR(60) NULL,
+    loc_rack_no    VARCHAR(20) NULL,
+    loc_row        VARCHAR(20) NULL,
+    loc_section    ENUM('I','II','III') NULL,
     status         ENUM('pending','archived','rejected','waiting_approval','active','deleted') NOT NULL DEFAULT 'pending',
     reviewed_by    INT NULL,
     reviewed_at    DATETIME NULL,
@@ -66,6 +73,7 @@ CREATE TABLE archive_files (
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX (department), INDEX (subject_no), INDEX (status),
     INDEX (archive_no), INDEX (file_no),
+    INDEX (loc_rack_no, loc_row, loc_section),
     FOREIGN KEY (submitted_by) REFERENCES users(id),
     FOREIGN KEY (reviewed_by)  REFERENCES users(id),
     FOREIGN KEY (sent_by)      REFERENCES users(id),
@@ -140,6 +148,24 @@ INSERT INTO archive_files
 (3,'2026-10-12','SUB-090','SUB-090','ආයතන',    'F-190','F-190','ඉඩම් ලේඛන 2025','2025-01-02','2025-12-20',104,104,60,44,NULL,NULL,NULL,'pending',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (3,'2026-10-14','SUB-091','SUB-091','සභා',     'F-191','F-191','සභා සැසි වාර්තාව','2026-02-01','2026-08-30',50,50,28,22,'ARC-091','ARC-091','R-014','waiting_approval',2,NOW(),2,NOW(),NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 (3,'2026-10-16','SUB-092','SUB-092','ගිණුම්',  'F-192','F-192','ගෙවීම් වවුචර Q3','2026-07-01','2026-09-30',165,165,90,75,'ARC-092','ARC-092','R-015','rejected',2,NOW(),2,NOW(),NULL,NULL,NULL,'පිටු ගණන හා දින පරාසය නැවත පරීක්ෂා කරන්න.',NULL,NULL,NULL);
+
+-- ===== File Location (Rack No, Row, Section) sample data =====
+UPDATE archive_files SET loc_rack_no='1', loc_row='1', loc_section='I'   WHERE id=1;
+UPDATE archive_files SET loc_rack_no='1', loc_row='2', loc_section='I'   WHERE id=2;
+UPDATE archive_files SET loc_rack_no='1', loc_row='3', loc_section='II'  WHERE id=3;
+UPDATE archive_files SET loc_rack_no='2', loc_row='1', loc_section='I'   WHERE id=4;
+UPDATE archive_files SET loc_rack_no='2', loc_row='2', loc_section='II'  WHERE id=5;
+UPDATE archive_files SET loc_rack_no='2', loc_row='3', loc_section='III' WHERE id=6;
+UPDATE archive_files SET loc_rack_no='3', loc_row='1', loc_section='I'   WHERE id=7;
+UPDATE archive_files SET loc_rack_no='3', loc_row='2', loc_section='II'  WHERE id=8;
+UPDATE archive_files SET loc_rack_no='3', loc_row='3', loc_section='III' WHERE id=9;
+UPDATE archive_files SET loc_rack_no='4', loc_row='1', loc_section='I'   WHERE id=10;
+UPDATE archive_files SET loc_rack_no='4', loc_row='2', loc_section='II'  WHERE id=11;
+UPDATE archive_files SET loc_rack_no='4', loc_row='3', loc_section='III' WHERE id=12;
+UPDATE archive_files SET loc_rack_no='5', loc_row='1', loc_section='I'   WHERE id=13;
+UPDATE archive_files SET loc_rack_no='5', loc_row='2', loc_section='II'  WHERE id=14;
+UPDATE archive_files SET loc_rack_no='5', loc_row='3', loc_section='III' WHERE id=15;
+UPDATE archive_files SET loc_rack_no='6', loc_row='1', loc_section='I'   WHERE id=16;
 
 INSERT INTO file_issues (file_id, taken_by, taken_date, returned_date, issued_by, received_by) VALUES
 (2, 'K. Perera',    '2026-10-10', NULL,         2, NULL),

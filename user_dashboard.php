@@ -1235,23 +1235,35 @@ function deptPill(dep) {
 /* ----- Rack Number helpers (row number + Roman numeral) ----- */
 function hasValue(v) { return v !== undefined && v !== null && String(v).trim() !== ""; }
 
+/* File Location parts (accepts camelCase or snake_case keys from api.php) */
+function rackParts(f) {
+    const pick = (...vals) => vals.find(hasValue);
+    return {
+        no:  pick(f.rackNo, f.rack_no),
+        row: pick(f.rackRow, f.rack_row),
+        sec: pick(f.rackRoman, f.rack_roman)
+    };
+}
+
 /* Plain text, used in print table and record document: "Rack 5, Row 3, Section II" */
 function rackText(f) {
+    const r = rackParts(f);
     const parts = [];
-    if (hasValue(f.rackNo)) parts.push("Rack " + String(f.rackNo).trim());
-    if (hasValue(f.rackRow)) parts.push("Row " + String(f.rackRow).trim());
-    if (hasValue(f.rackRoman)) parts.push("Section " + String(f.rackRoman).trim());
+    if (hasValue(r.no)) parts.push("Rack " + String(r.no).trim());
+    if (hasValue(r.row)) parts.push("Row " + String(r.row).trim());
+    if (hasValue(r.sec)) parts.push("Section " + String(r.sec).trim());
     return parts.length ? parts.join(", ") : "-";
 }
 
-function hasRack(f) { return hasValue(f.rackNo) || hasValue(f.rackRow) || hasValue(f.rackRoman); }
+function hasRack(f) { const r = rackParts(f); return hasValue(r.no) || hasValue(r.row) || hasValue(r.sec); }
 
 /* Badge, used in the on-screen tables */
 function rackPill(f) {
     if (!hasRack(f)) return `<span class="rack-empty">-</span>`;
-    const rack = hasValue(f.rackNo) ? `<b>Rack ${escapeHTML(String(f.rackNo).trim())}</b>` : "";
-    const row = hasValue(f.rackRow) ? `<b>Row ${escapeHTML(String(f.rackRow).trim())}</b>` : "";
-    const rom = hasValue(f.rackRoman) ? `<i>${escapeHTML(String(f.rackRoman).trim())}</i>` : "";
+    const r = rackParts(f);
+    const rack = hasValue(r.no) ? `<b>Rack ${escapeHTML(String(r.no).trim())}</b>` : "";
+    const row = hasValue(r.row) ? `<b>Row ${escapeHTML(String(r.row).trim())}</b>` : "";
+    const rom = hasValue(r.sec) ? `<i>${escapeHTML(String(r.sec).trim())}</i>` : "";
     return `<span class="rack-pill" title="${escapeHTML(rackText(f))}">${rack}${row}${rom}</span>`;
 }
 
@@ -1393,10 +1405,9 @@ function buildRecordDocument(r, preview) {
         return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
     };
 
-    // Key facts bar: Archive Number always, File Location when the record has one,
+    // Key facts bar: Archive Number and File Location always,
     // Archive Tree Number when the record has one
-    const keys = [["Archive Number", r.archive]];
-    if (hasRack(r)) keys.push(["File Location", rackText(r)]);
+    const keys = [["Archive Number", r.archive], ["File Location", rackText(r)]];
     if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
     const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
         + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
@@ -1410,12 +1421,16 @@ function buildRecordDocument(r, preview) {
         ["File Start Date", r.start],
         ["File End Date", r.end]
     ];
-    if (hasRack(r)) {
-        infoItems.push(["Rack No.", r.rackNo]);
-        infoItems.push(["Row", r.rackRow]);
-        infoItems.push(["Section", r.rackRoman]);
-    }
     const info = section("File Information", infoItems);
+
+    // File Location section: Rack No, Row, Section (always shown)
+    const rp = rackParts(r);
+    sectionNo++;
+    const location = `<div class="sec">
+        <div class="sec-title"><span class="no">${sectionNo}</span>File Location</div>
+        <div class="stats" style="grid-template-columns:repeat(3,1fr)">`
+        + [["Rack No", rp.no], ["Row", rp.row], ["Section", rp.sec]].map(s => `<div class="stat"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
+        + `</div></div>`;
 
     // Page details: Right/Left Side are shown only when the record has them
     const stats = [];
@@ -1519,6 +1534,7 @@ td[colspan="3"]{width:81%}
     </div>
 
     ${info}
+    ${location}
     ${pages}
 </div></div>
 </body></html>`;
