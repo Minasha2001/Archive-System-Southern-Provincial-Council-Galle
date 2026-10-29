@@ -658,6 +658,11 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 .rack-pill{white-space:nowrap}
 .rack-pill i{display:grid;place-items:center;padding:5px 10px;font-style:normal;font-family:var(--serif);color:#fff;background:linear-gradient(135deg,var(--navy),var(--navy-2))}
 .rack-empty{color:var(--muted)}
+
+/* ----- Sidebar: selected section highlight (follows click and scroll) ----- */
+#passwordSection{scroll-margin-top:90px}
+.nav-link.active{color:#fff;font-weight:700;background:linear-gradient(90deg,rgba(212,162,74,.30),rgba(255,255,255,.06));box-shadow:inset 0 0 0 1px rgba(212,162,74,.28)}
+.nav-link.active i{color:var(--gold-2)}
 </style>
 </head>
 
@@ -686,8 +691,8 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
         <div class="sidebar-label">MAIN MENU</div>
 
         <nav class="sidebar-menu">
-            <a href="user_dashboard.php" class="nav-link active"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
-            <a href="#passwordSection" class="nav-link"><i class="fa-solid fa-shield-halved"></i><span>Change Password</span></a>
+            <a href="#dashboardTop" class="nav-link active" data-nav="dashboard" aria-current="page"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
+            <a href="#passwordSection" class="nav-link" data-nav="password"><i class="fa-solid fa-shield-halved"></i><span>Change Password</span></a>
             <a href="logout.php" class="nav-link logout-link" onclick="return confirm('Are you sure you want to logout?')"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></a>
         </nav>
 
@@ -703,7 +708,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
     </aside>
 
     <!-- MAIN -->
-    <main class="main">
+    <main class="main" id="dashboardTop">
 
         <header class="topbar">
             <div class="topbar-left">
@@ -1820,6 +1825,47 @@ document.querySelectorAll(".sidebar .nav-link").forEach(link => {
     });
 });
 
+/* ===== SIDEBAR: HIGHLIGHT THE SELECTED SECTION ===== */
+const navLinks = document.querySelectorAll(".sidebar .nav-link[data-nav]");
+const passwordSection = document.getElementById("passwordSection");
+
+function setActiveNav(key) {
+    navLinks.forEach(link => {
+        const isActive = link.dataset.nav === key;
+        link.classList.toggle("active", isActive);
+        if (isActive) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+    });
+}
+
+/* Click: highlight at once and scroll to the section */
+navLinks.forEach(link => {
+    link.addEventListener("click", function(e) {
+        e.preventDefault();
+        const key = this.dataset.nav;
+        setActiveNav(key);
+        if (key === "password") {
+            passwordSection.scrollIntoView({behavior: "smooth", block: "start"});
+        } else {
+            window.scrollTo({top: 0, behavior: "smooth"});
+        }
+    });
+});
+
+/* Scroll: keep the highlight in step with the section on screen */
+function updateNavFromScroll() {
+    const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+    const passwordTop = passwordSection.getBoundingClientRect().top;
+    const passwordVisible = passwordTop <= window.innerHeight * 0.45;
+    setActiveNav(atBottom || passwordVisible ? "password" : "dashboard");
+}
+let navTicking = false;
+window.addEventListener("scroll", function() {
+    if (navTicking) return;
+    navTicking = true;
+    requestAnimationFrame(function() { updateNavFromScroll(); navTicking = false; });
+}, {passive: true});
+
 /* ===== PROFILE DROPDOWN ===== */
 const profileToggle = document.getElementById("profileToggle");
 const profilePopover = document.getElementById("profilePopover");
@@ -1838,8 +1884,19 @@ profileToggle.addEventListener("click", function(e) {
 profilePopover.addEventListener("click", e => e.stopPropagation());
 document.addEventListener("click", closeProfilePopover);
 
+/* "Change Password" in the profile menu: scroll there and highlight the sidebar item */
+profilePopover.querySelectorAll('a[href="#passwordSection"]').forEach(link => {
+    link.addEventListener("click", function(e) {
+        e.preventDefault();
+        closeProfilePopover();
+        setActiveNav("password");
+        passwordSection.scrollIntoView({behavior: "smooth", block: "start"});
+    });
+});
+
 /* ===== INITIAL LOAD ===== */
 loadState();
+updateNavFromScroll();
 </script>
 
 </body>
