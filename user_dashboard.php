@@ -627,9 +627,10 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 .status-badge.status-rejected{color:#a1303f;border-color:#b3414f;box-shadow:inset 0 0 0 1px rgba(179,65,79,.25)}
 .status-note{display:block;margin-top:4px;font-size:10px;color:#a1303f;font-style:italic;max-width:220px}
 
-/* ----- Print: keep the output plain ----- */
+/* ----- Print: keep the output plain; zero page margin hides the browser's URL / page-number header and footer ----- */
+@page{size:A4;margin:0}
 @media print{
-    body{background:#fff}
+    body{background:#fff;padding:12mm}
     .card{border-left:0}
     .hero-art,.sidebar::after{display:none!important}
 }
@@ -1310,6 +1311,7 @@ resultsBody.addEventListener("click", function(e) {
 });
 
 /* ===== FILE DOCUMENT (shown by the View button, printed by its Print button) ===== */
+/* preview = true: on-screen viewer padding; false: print layout */
 function buildRecordDocument(r, preview) {
     const has = v => v !== undefined && v !== null && v !== "";
     const val = v => escapeHTML(has(v) ? v : "-");
@@ -1356,28 +1358,23 @@ function buildRecordDocument(r, preview) {
         + stats.map(s => `<div class="stat${s[2] ? " total" : ""}"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
         + `</div></div>`;
 
-    const printedOn = new Date().toLocaleString("en-GB", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"});
-    const footer = preview ? "" : `<div class="foot-wrap">
-        <div class="meta">Printed by ${escapeHTML(USER_NAME)} on ${escapeHTML(printedOn)}</div>
-    </div>`;
-
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <base href="${escapeHTML(document.baseURI)}">
 <title>Archive File - ${escapeHTML(r.archive)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
 <style>
-@page{size:A4;margin:12mm}
+@page{size:A4;margin:0}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 body{font-family:'Plus Jakarta Sans','Noto Sans Sinhala',Arial,sans-serif;color:#14233d;font-size:12.5px;line-height:1.55;margin:0;background:#fff}
-${preview ? "body{padding:26px 30px}" : ""}
+${preview ? "body{padding:26px 30px}" : "body{padding:12mm}"}
 
 /* Double-line page frame */
 .sheet{border:2px solid #0b2146;padding:6px}
 .page{position:relative;border:1px solid #d4a24a;padding:24px 30px 22px;overflow:hidden}
 .page>*:not(.wm){position:relative;z-index:1}
 .wm{position:absolute;left:50%;top:52%;width:320px;max-width:60%;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
-@media print{.page{min-height:248mm;display:flex;flex-direction:column}}
+@media print{.page{min-height:265mm;display:flex;flex-direction:column}}
 
 /* Letterhead */
 .letterhead{text-align:center}
@@ -1425,10 +1422,6 @@ td[colspan="3"]{width:81%}
 .stat.total{background:#0b2146;border-color:#0b2146}
 .stat.total .n{color:#fff}
 .stat.total .t{color:#f0cf8a}
-
-/* Print-only footer */
-.foot-wrap{margin-top:auto;padding-top:30px}
-.meta{font-size:11px;color:#6a7890;text-align:right}
 </style></head>
 <body>
 <div class="sheet"><div class="page">
@@ -1456,7 +1449,6 @@ td[colspan="3"]{width:81%}
 
     ${info}
     ${pages}
-    ${footer}
 </div></div>
 </body></html>`;
 }
@@ -1691,7 +1683,7 @@ function toggleSidebar() {
 
 function closeSidebar() {
     sidebar.classList.remove("open");
-    sidebarOverlay.classList.remove("show");
+    sidebarOverlay.classList.remove("show"); 
     document.body.style.overflow = "";
 
     if (window.innerWidth <= 700) {
