@@ -333,6 +333,20 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 .password-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 @media (max-width:1150px){.password-grid{grid-template-columns:1fr 1fr}}
 @media (max-width:700px){.password-grid{grid-template-columns:1fr;gap:13px}}
+
+/* ----- FILE LOCATION (Rack No + Row typed in one field, Section drop box) ----- */
+.input-wrap.rack-wrap{gap:10px}
+.input-wrap.rack-wrap input{flex:1;width:auto;height:28px}
+.input-wrap.rack-wrap input+input{padding-left:12px;border-left:1px solid var(--rule)}
+.input-wrap.rack-wrap select{flex:none;width:88px;height:28px;padding-left:12px;padding-right:20px;border-left:1px solid var(--rule);font-weight:700;color:var(--navy-2)}
+.field .hint{display:block;margin-top:5px;font-size:var(--fs-xs);color:var(--muted)}
+
+/* File Location badge in tables: Rack | Row | Section */
+.rack-pill{display:inline-flex;align-items:stretch;overflow:hidden;white-space:nowrap;border:1px solid #e0cf9f;border-radius:6px;background:#fffaf0;font-size:var(--fs-xs);font-weight:700;line-height:1}
+.rack-pill b{padding:5px 9px;color:#6b5326;font-weight:700}
+.rack-pill b+b{border-left:1px solid #e0cf9f}
+.rack-pill i{display:grid;place-items:center;padding:5px 10px;font-style:normal;font-family:var(--serif);color:#fff;background:linear-gradient(135deg,var(--navy),var(--navy-2))}
+.rack-empty{color:var(--muted)}
 </style>
 </head>
 
@@ -561,7 +575,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                     <table id="resultsTable">
                         <thead>
                             <tr>
-                                <th>No.</th><th>File Name</th><th>Department</th><th>Subject Number</th><th>File Number</th><th>Archive Number</th><th>Archive Tree Number</th>
+                                <th>No.</th><th>File Name</th><th>Department</th><th>Subject Number</th><th>File Number</th><th>Archive Number</th><th>Archive Tree Number</th><th>File Location</th>
                                 <th>Start Date</th><th>End Date</th><th>Right Side</th><th>Left Side</th><th>Pages</th><th>Added Date</th><th>Status</th><th>Action</th>
                             </tr>
                         </thead>
@@ -596,7 +610,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                         <thead>
                             <tr>
                                 <th>No.</th><th>Sent Date</th><th>File Name</th><th>Department</th><th>Subject Number</th>
-                                <th>Archive Number</th><th>Archive Tree Number</th><th>Pages</th><th>Status</th>
+                                <th>Archive Number</th><th>Archive Tree Number</th><th>File Location</th><th>Pages</th><th>Status</th>
                             </tr>
                         </thead>
                         <tbody id="waitingBody"></tbody>
@@ -625,7 +639,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                     <table id="pendingTable">
                         <thead>
                             <tr>
-                                <th>No.</th><th>Submission Date</th><th>File Name</th><th>Department</th><th>Subject Number</th><th>File Number</th>
+                                <th>No.</th><th>Submission Date</th><th>File Name</th><th>Department</th><th>Subject Number</th><th>File Number</th><th>File Location</th>
                                 <th>Start Date</th><th>End Date</th><th>Right Side</th><th>Left Side</th><th>Pages</th><th>Action</th>
                             </tr>
                         </thead>
@@ -853,6 +867,22 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                         <label for="eLeft">Left Side</label>
                         <div class="input-wrap"><i class="fa-solid fa-arrow-left-long"></i><input type="number" id="eLeft" min="0" step="1"></div>
                     </div>
+                    <!-- File Location: Rack No + Row typed inside one field, plus Section drop box -->
+                    <div class="field full">
+                        <label for="eRackNo">File Location</label>
+                        <div class="input-wrap rack-wrap">
+                            <i class="fa-solid fa-table-cells-large"></i>
+                            <input type="text" id="eRackNo" maxlength="20" placeholder="Rack No" aria-label="Rack number" autocomplete="off">
+                            <input type="text" id="eRackRow" maxlength="20" placeholder="Row" aria-label="Row number" autocomplete="off">
+                            <select id="eRackRoman" aria-label="Section (Roman numeral)">
+                                <option value="">Section</option>
+                                <option value="I">I</option>
+                                <option value="II">II</option>
+                                <option value="III">III</option>
+                            </select>
+                        </div>
+                        <small class="hint">Rack no., row, and section (I, II, III). Fill all three or leave all three empty.</small>
+                    </div>
                 </div>
 
                 <div class="archive-box">
@@ -920,6 +950,7 @@ const deptLabels = {
     Councils:"සභා(Councils)",
     Accounts:"ගිණුම්(Accounts)"
 };
+const ROMAN_OPTIONS = ["I", "II", "III"];
 
 let records = [];
 let pending = [];
@@ -987,6 +1018,39 @@ function recordById(id) {
     return records.find(r => Number(r.id) === Number(id));
 }
 
+/* ----- File Location helpers (Rack No, Row, Section) ----- */
+function hasValue(v) { return v !== undefined && v !== null && String(v).trim() !== ""; }
+
+/* accepts rackNo/rackRow/rackRoman or loc_rack_no/loc_row/loc_section from api.php */
+function rackParts(f) {
+    const pick = (...vals) => vals.find(hasValue);
+    return {
+        no:  pick(f.rackNo, f.loc_rack_no),
+        row: pick(f.rackRow, f.loc_row),
+        sec: pick(f.rackRoman, f.loc_section)
+    };
+}
+
+/* Plain text (used in the document): "Rack 5, Row 3, Section II" */
+function rackText(f) {
+    const r = rackParts(f);
+    const parts = [];
+    if (hasValue(r.no)) parts.push("Rack " + String(r.no).trim());
+    if (hasValue(r.row)) parts.push("Row " + String(r.row).trim());
+    if (hasValue(r.sec)) parts.push("Section " + String(r.sec).trim());
+    return parts.length ? parts.join(", ") : "-";
+}
+
+/* Badge (used in the on-screen tables): Rack 5 | Row 3 | Section II */
+function rackPill(f) {
+    const r = rackParts(f);
+    if (!hasValue(r.no) && !hasValue(r.row) && !hasValue(r.sec)) return `<span class="rack-empty">-</span>`;
+    const rack = hasValue(r.no) ? `<b>Rack ${escapeHTML(String(r.no).trim())}</b>` : "";
+    const row = hasValue(r.row) ? `<b>Row ${escapeHTML(String(r.row).trim())}</b>` : "";
+    const sec = hasValue(r.sec) ? `<i>Section ${escapeHTML(String(r.sec).trim())}</i>` : "";
+    return `<span class="rack-pill" title="${escapeHTML(rackText(f))}">${rack}${row}${sec}</span>`;
+}
+
 let flashTimer;
 function flash(message) {
     $("pageAlertText").textContent = message;
@@ -1016,6 +1080,7 @@ function renderPending() {
             <td>${deptPill(f.department)}</td>
             <td>${escapeHTML(f.subject)}</td>
             <td>${escapeHTML(f.fileNo)}</td>
+            <td>${rackPill(f)}</td>
             <td>${escapeHTML(f.start)}</td>
             <td>${escapeHTML(f.end)}</td>
             <td>${escapeHTML(f.right ?? "-")}</td>
@@ -1042,6 +1107,7 @@ function renderWaiting() {
             <td>${escapeHTML(f.subject)}</td>
             <td class="strong-cell">${escapeHTML(f.archive)}</td>
             <td>${escapeHTML(f.rack)}</td>
+            <td>${rackPill(f)}</td>
             <td>${escapeHTML(f.pages)}</td>
             <td><span class="badge badge-out"><i class="fa-regular fa-clock"></i> Waiting for Admin</span></td>
         </tr>`).join("");
@@ -1094,6 +1160,7 @@ function renderResults() {
             <td>${escapeHTML(r.fileNo)}</td>
             <td class="strong-cell">${escapeHTML(r.archive)}</td>
             <td>${escapeHTML(r.rack)}</td>
+            <td>${rackPill(r)}</td>
             <td>${escapeHTML(r.start)}</td>
             <td>${escapeHTML(r.end)}</td>
             <td>${escapeHTML(r.right ?? "-")}</td>
@@ -1131,8 +1198,8 @@ function buildRecordDocument(r, preview) {
         return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
     };
 
-    // Key facts bar: Archive Number always, Archive Tree Number when the record has one
-    const keys = [["Archive Number", r.archive]];
+    // Key facts bar: Archive Number and File Location always, Archive Tree Number when the record has one
+    const keys = [["Archive Number", r.archive], ["File Location", rackText(r)]];
     if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
     const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
         + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
@@ -1146,6 +1213,15 @@ function buildRecordDocument(r, preview) {
         ["File Start Date", r.start],
         ["File End Date", r.end]
     ]);
+
+    // File Location section: Rack No, Row, Section (always shown)
+    const rp = rackParts(r);
+    sectionNo++;
+    const location = `<div class="sec">
+        <div class="sec-title"><span class="no">${sectionNo}</span>File Location</div>
+        <div class="stats" style="grid-template-columns:repeat(3,1fr)">`
+        + [["Rack No", rp.no], ["Row", rp.row], ["Section", rp.sec]].map(s => `<div class="stat"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
+        + `</div></div>`;
 
     // Page details: Right/Left Side are shown only when the record has them
     const stats = [];
@@ -1249,6 +1325,7 @@ td[colspan="3"]{width:81%}
     </div>
 
     ${info}
+    ${location}
     ${pages}
 </div></div>
 </body></html>`;
@@ -1436,6 +1513,11 @@ function openEdit(mode, item) {
     $("eArchive").value = item.archive || "";
     $("eRack").value = item.rack || "";
 
+    const loc = rackParts(item);
+    $("eRackNo").value = hasValue(loc.no) ? loc.no : "";
+    $("eRackRow").value = hasValue(loc.row) ? loc.row : "";
+    $("eRackRoman").value = ROMAN_OPTIONS.includes(loc.sec) ? loc.sec : "";
+
     // reason shown when the Admin sent the file back
     const hasReject = mode === "pending" && !!item.rejectReason;
     $("rejectBox").hidden = !hasReject;
@@ -1471,12 +1553,16 @@ $("editForm").addEventListener("submit", async function(e) {
         left: Number($("eLeft").value),
         pages: Number($("ePages").value),
         archive: $("eArchive").value.trim(),
-        rack: $("eRack").value.trim()
+        rack: $("eRack").value.trim(),
+        rackNo: $("eRackNo").value.trim(),
+        rackRow: $("eRackRow").value.trim(),
+        rackRoman: $("eRackRoman").value
     };
 
     const archiveKey = d.archive.toLowerCase();
     const usedInArchive = records.some(r => Number(r.id) !== id && String(r.archive).toLowerCase() === archiveKey);
     const usedInWaiting = waiting.some(a => Number(a.id) !== id && String(a.archive).toLowerCase() === archiveKey);
+    const anyLocation = !!(d.rackNo || d.rackRow || d.rackRoman);
 
     let problem = "";
     if (!d.name) problem = "Please enter the file name.";
@@ -1487,6 +1573,7 @@ $("editForm").addEventListener("submit", async function(e) {
     else if ($("eRight").value === "" || !Number.isInteger(d.right) || d.right < 0) problem = "Please enter a valid number of pages for the Right Side (0 or more).";
     else if ($("eLeft").value === "" || !Number.isInteger(d.left) || d.left < 0) problem = "Please enter a valid number of pages for the Left Side (0 or more).";
     else if (!Number.isInteger(d.pages) || d.pages < 1) problem = "Please enter a valid Total Pages number (1 or more).";
+    else if (anyLocation && (!d.rackNo || !d.rackRow || !ROMAN_OPTIONS.includes(d.rackRoman))) problem = "Please fill the Rack No, Row and Section of the File Location (or leave all three empty).";
     else if (!d.archive) problem = "Please enter the Archive Number.";
     else if (!d.rack) problem = "Please enter the Archive Tree Number.";
     else if (usedInArchive || usedInWaiting) {
