@@ -655,7 +655,8 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 .rack-pill{display:inline-flex;align-items:stretch;overflow:hidden;border:1px solid #e0cf9f;border-radius:6px;background:#fffaf0;font-size:var(--fs-xs);font-weight:700;line-height:1}
 .rack-pill b{padding:5px 9px;color:#6b5326;font-weight:700}
 .rack-pill b+b{border-left:1px solid #e0cf9f}
-.rack-pill i{display:grid;place-items:center;padding:5px 9px;font-style:normal;font-family:var(--serif);color:#fff;background:linear-gradient(135deg,var(--navy),var(--navy-2))}
+.rack-pill{white-space:nowrap}
+.rack-pill i{display:grid;place-items:center;padding:5px 10px;font-style:normal;font-family:var(--serif);color:#fff;background:linear-gradient(135deg,var(--navy),var(--navy-2))}
 .rack-empty{color:var(--muted)}
 </style>
 </head>
@@ -1235,13 +1236,13 @@ function deptPill(dep) {
 /* ----- Rack Number helpers (row number + Roman numeral) ----- */
 function hasValue(v) { return v !== undefined && v !== null && String(v).trim() !== ""; }
 
-/* File Location parts (accepts camelCase or snake_case keys from api.php) */
+/* File Location parts (accepts rackNo/rackRow/rackRoman or loc_rack_no/loc_row/loc_section from api.php) */
 function rackParts(f) {
     const pick = (...vals) => vals.find(hasValue);
     return {
-        no:  pick(f.rackNo, f.rack_no),
-        row: pick(f.rackRow, f.rack_row),
-        sec: pick(f.rackRoman, f.rack_roman)
+        no:  pick(f.rackNo, f.loc_rack_no),
+        row: pick(f.rackRow, f.loc_row),
+        sec: pick(f.rackRoman, f.loc_section)
     };
 }
 
@@ -1263,7 +1264,7 @@ function rackPill(f) {
     const r = rackParts(f);
     const rack = hasValue(r.no) ? `<b>Rack ${escapeHTML(String(r.no).trim())}</b>` : "";
     const row = hasValue(r.row) ? `<b>Row ${escapeHTML(String(r.row).trim())}</b>` : "";
-    const rom = hasValue(r.sec) ? `<i>${escapeHTML(String(r.sec).trim())}</i>` : "";
+    const rom = hasValue(r.sec) ? `<i>Section ${escapeHTML(String(r.sec).trim())}</i>` : "";
     return `<span class="rack-pill" title="${escapeHTML(rackText(f))}">${rack}${row}${rom}</span>`;
 }
 

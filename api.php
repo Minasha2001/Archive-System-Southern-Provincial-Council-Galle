@@ -8,6 +8,12 @@
  *   active            approved by admin -> part of the archive
  *   rejected          admin sent it back to the subject officer (with a reason)
  *   deleted           removed from the archive by the admin (reason + date kept)
+ *
+ * File Location (entered by the user when submitting):
+ *   loc_rack_no  -> rackNo     (Rack No)
+ *   loc_row      -> rackRow    (Row)
+ *   loc_section  -> rackRoman  (Section: I | II | III)
+ * "rack" (archive_no's Archive Tree Number, rack_no column) is a different field set by the Subject Officer.
  */
 require_once __DIR__ . '/config.php';
 
@@ -45,6 +51,9 @@ if (empty($_SESSION['api_csrf'])) {
 const DEPT_DB = ['Institutions' => 'ආයතන', 'Councils' => 'සභා', 'Accounts' => 'ගිණුම්'];
 const DEPT_UI = ['ආයතන' => 'Institutions', 'සභා' => 'Councils', 'ගිණුම්' => 'Accounts'];
 
+/* ---------- File Location: allowed Section values ---------- */
+const LOC_SECTIONS = ['I', 'II', 'III'];
+
 function dept_ui(string $dep): string { return DEPT_UI[$dep] ?? $dep; }
 
 function map_file(array $r): array {
@@ -57,7 +66,9 @@ function map_file(array $r): array {
 
 const FILE_COLUMNS =
     "a.id, a.file_name AS name, a.department, a.subject_no AS subject, a.file_no AS fileNo,
-     a.archive_no AS archive, a.rack_no AS rack, a.start_date AS `start`, a.end_date AS `end`,
+     a.archive_no AS archive, a.rack_no AS rack,
+     a.loc_rack_no AS rackNo, a.loc_row AS rackRow, a.loc_section AS rackRoman,
+     a.start_date AS `start`, a.end_date AS `end`,
      a.right_side AS `right`, a.left_side AS `left`, a.pages, a.status,
      a.submit_date AS submissionDate,
      DATE(COALESCE(a.approved_at, a.created_at)) AS `date`,
@@ -207,16 +218,19 @@ if (!is_array($in)) $in = [];
 if ($action === 'submit_file') {
     if ($role !== 'user') fail('Not allowed.', 403);
 
-    $name    = trim((string)($in['name'] ?? ''));
-    $dept    = (string)($in['department'] ?? '');
-    $subject = trim((string)($in['subject'] ?? ''));
-    $fileNo  = trim((string)($in['fileNo'] ?? ''));
-    $start   = (string)($in['start'] ?? '');
-    $end     = (string)($in['end'] ?? '');
-    $submit  = (string)($in['submitDate'] ?? '');
-    $right   = $in['right'] ?? null;
-    $left    = $in['left'] ?? null;
-    $pages   = $in['pages'] ?? null;
+    $name      = trim((string)($in['name'] ?? ''));
+    $dept      = (string)($in['department'] ?? '');
+    $subject   = trim((string)($in['subject'] ?? ''));
+    $fileNo    = trim((string)($in['fileNo'] ?? ''));
+    $start     = (string)($in['start'] ?? '');
+    $end       = (string)($in['end'] ?? '');
+    $submit    = (string)($in['submitDate'] ?? '');
+    $rackNo    = trim((string)($in['rackNo'] ?? ''));
+    $rackRow   = trim((string)($in['rackRow'] ?? ''));
+    $rackRoman = trim((string)($in['rackRoman'] ?? ''));
+    $right     = $in['right'] ?? null;
+    $left      = $in['left'] ?? null;
+    $pages     = $in['pages'] ?? null;
 
     if ($name === '') fail('Enter the file name.');
     if ($subject === '') fail('Enter the subject number.');
@@ -226,6 +240,9 @@ if ($action === 'submit_file') {
     if ($end < $start) fail('File End Date must be on or after File Start Date.');
     if (!valid_date_str($submit)) fail('Enter a valid submission date.');
     if ($submit < $end) fail('Submission Date cannot be earlier than the File End Date.');
+    if ($rackNo === '' || mb_strlen($rackNo) > 20) fail('Enter a valid Rack No (up to 20 characters).');
+    if ($rackRow === '' || mb_strlen($rackRow) > 20) fail('Enter a valid Row (up to 20 characters).');
+    if (!in_array($rackRoman, LOC_SECTIONS, true)) fail('Select the Section (I, II or III).');
     if (!is_numeric($right) || (int)$right < 0) fail('Enter a valid Right Side page count.');
     if (!is_numeric($left) || (int)$left < 0) fail('Enter a valid Left Side page count.');
     if (!is_numeric($pages) || (int)$pages < 1) fail('Enter a valid Total Pages number.');
@@ -234,11 +251,13 @@ if ($action === 'submit_file') {
     $st = $pdo->prepare(
         "INSERT INTO archive_files
          (submitted_by, submit_date, subject_no, subject_number, department, file_no, file_number,
-          file_name, start_date, end_date, pages, page_count, right_side, left_side, status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending')"
+          file_name, start_date, end_date, pages, page_count, right_side, left_side,
+          loc_rack_no, loc_row, loc_section, status)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending')"
     );
     $st->execute([$uid, $submit, $subject, $subject, $depDb, $fileNo, $fileNo, $name,
-                  $start, $end, (int)$pages, (int)$pages, (int)$right, (int)$left]);
+                  $start, $end, (int)$pages, (int)$pages, (int)$right, (int)$left,
+                  $rackNo, $rackRow, $rackRoman]);
     out(['ok' => true, 'id' => (int)$pdo->lastInsertId()]);
 }
 
