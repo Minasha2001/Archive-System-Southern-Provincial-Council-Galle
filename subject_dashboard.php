@@ -1113,8 +1113,8 @@ function renderResults() {
 
 /* ===== FILE DOCUMENT (the same document is used for View and Print) ===== */
 function buildRecordDocument(r, preview) {
-    const loan = openLoan(r.id);
-    const val = v => escapeHTML(v === "" || v === undefined || v === null ? "-" : v);
+    const has = v => v !== undefined && v !== null && v !== "";
+    const val = v => escapeHTML(has(v) ? v : "-");
 
     // Builds a numbered section with label/value pairs, two pairs per row.
     let sectionNo = 0;
@@ -1130,6 +1130,13 @@ function buildRecordDocument(r, preview) {
         return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
     };
 
+    // Key facts bar: Archive Number always, Archive Tree Number when the record has one
+    const keys = [["Archive Number", r.archive]];
+    if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
+    const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
+        + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
+        + `</div>`;
+
     const info = section("File Information", [
         ["Department", deptLabels[r.department] || r.department],
         ["Subject Number", r.subject],
@@ -1139,22 +1146,22 @@ function buildRecordDocument(r, preview) {
         ["File End Date", r.end]
     ]);
 
+    // Page details: Right/Left Side are shown only when the record has them
+    const stats = [];
+    if (has(r.right)) stats.push(["Right Side", r.right, false]);
+    if (has(r.left)) stats.push(["Left Side", r.left, false]);
+    stats.push(["Total Pages", r.pages, true]);
     sectionNo++;
     const pages = `<div class="sec">
         <div class="sec-title"><span class="no">${sectionNo}</span>Page Details</div>
-        <div class="stats">
-            <div class="stat"><div class="n">${val(r.right)}</div><div class="t">Right Side</div></div>
-            <div class="stat"><div class="n">${val(r.left)}</div><div class="t">Left Side</div></div>
-            <div class="stat total"><div class="n">${val(r.pages)}</div><div class="t">Total Pages</div></div>
-        </div>
+        <div class="stats" style="grid-template-columns:repeat(${stats.length},1fr)">`
+        + stats.map(s => `<div class="stat${s[2] ? " total" : ""}"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
+        + `</div></div>`;
+
+    const printedOn = new Date().toLocaleString("en-GB", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"});
+    const footer = preview ? "" : `<div class="foot-wrap">
+        <div class="meta">Printed by ${escapeHTML(OFFICER_NAME)} on ${escapeHTML(printedOn)}</div>
     </div>`;
-
-    const issued = loan ? section("Issue Details", [
-        ["Taken By", loan.takenBy],
-        ["Date Taken", loan.takenDate]
-    ]) : "";
-
-    const statusChip = loan ? '<span class="chip out">Issued</span>' : '<span class="chip in">In Archive</span>';
 
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
@@ -1172,7 +1179,7 @@ ${preview ? "body{padding:26px 30px}" : ""}
 .page{position:relative;border:1px solid #d4a24a;padding:24px 30px 22px;overflow:hidden}
 .page>*:not(.wm){position:relative;z-index:1}
 .wm{position:absolute;left:50%;top:52%;width:320px;max-width:60%;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
-@media print{.page{min-height:248mm}}
+@media print{.page{min-height:248mm;display:flex;flex-direction:column}}
 
 /* Letterhead */
 .letterhead{text-align:center}
@@ -1191,14 +1198,11 @@ h1{font-family:'Libre Baskerville',Georgia,serif;font-size:18px;font-weight:700;
 .subtitle{font-size:11px;color:#6a7890;margin-top:3px}
 
 /* Key facts bar */
-.keybar{display:grid;grid-template-columns:repeat(3,1fr);margin-bottom:14px;border:1px solid #cdd6e6;border-top:3px solid #0b2146;background:#f8f9fc}
+.keybar{display:grid;margin-bottom:14px;border:1px solid #cdd6e6;border-top:3px solid #0b2146;background:#f8f9fc}
 .keybar>div{padding:9px 14px;text-align:center}
 .keybar>div+div{border-left:1px solid #cdd6e6}
 .k-lbl{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6a7890}
 .k-val{margin-top:2px;font-size:16px;font-weight:700;color:#16386a;overflow-wrap:anywhere}
-.chip{display:inline-block;margin-top:2px;padding:2px 14px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid transparent}
-.chip.in{background:#e3f6ee;color:#11704f;border-color:#c5ead9}
-.chip.out{background:#fbf3e1;color:#8a6420;border-color:#f0dcb0}
 
 /* File name */
 .name-box{margin-bottom:16px;padding:6px 2px 10px;border-bottom:1px solid #cdd6e6}
@@ -1216,13 +1220,17 @@ td{width:31%;font-weight:600;color:#14233d}
 td[colspan="3"]{width:81%}
 
 /* Page statistics */
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.stats{display:grid;gap:10px;margin-top:10px}
 .stat{padding:9px 10px;text-align:center;border:1px solid #cdd6e6;background:#fff}
 .stat .n{font-size:20px;font-weight:700;line-height:1.2;color:#16386a}
 .stat .t{font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6a7890}
 .stat.total{background:#0b2146;border-color:#0b2146}
 .stat.total .n{color:#fff}
 .stat.total .t{color:#f0cf8a}
+
+/* Print-only footer */
+.foot-wrap{margin-top:auto;padding-top:30px}
+.meta{font-size:11px;color:#6a7890;text-align:right}
 </style></head>
 <body>
 <div class="sheet"><div class="page">
@@ -1241,11 +1249,7 @@ td[colspan="3"]{width:81%}
         <div class="subtitle">Official record of an archived file</div>
     </div>
 
-    <div class="keybar">
-        <div><div class="k-lbl">Archive Number</div><div class="k-val">${val(r.archive)}</div></div>
-        <div><div class="k-lbl">Archive Tree Number</div><div class="k-val">${val(r.rack)}</div></div>
-        <div><div class="k-lbl">Status</div>${statusChip}</div>
-    </div>
+    ${keybar}
 
     <div class="name-box">
         <div class="lbl">File Name</div>
@@ -1254,7 +1258,7 @@ td[colspan="3"]{width:81%}
 
     ${info}
     ${pages}
-    ${issued}
+    ${footer}
 </div></div>
 </body></html>`;
 }
