@@ -887,7 +887,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                     </div>
                 </div>
 
-                <!-- Print version: ALL matching files, or ONE file when a row Print button is used -->
+                <!-- Print version: used by the "Print Results" button (all matching files) -->
                 <div class="print-only">
                     <h2>දකුණු පළාත් සභා ලේකම් කාර්යාලය - Archive Search Results</h2>
                     <p id="printInfo"></p>
@@ -1280,6 +1280,7 @@ function printDate() {
     return new Date().toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
 }
 
+/* Print a LIST of files as a table (used by the "Print Results" button) */
 function printFiles(list, infoText) {
     document.getElementById("printInfo").textContent = infoText;
 
@@ -1299,7 +1300,7 @@ function printFiles(list, infoText) {
     window.print();
 }
 
-/* Print ONE file (Print button in each row) */
+/* Print ONE file (Print button in each row): same document as the View button */
 resultsBody.addEventListener("click", function(e) {
     const btn = e.target.closest(".row-print-btn");
     if (!btn) return;
@@ -1307,7 +1308,7 @@ resultsBody.addEventListener("click", function(e) {
     const file = filteredFiles[Number(btn.dataset.i)];
     if (!file) return;
 
-    printFiles([file], "Printed on " + printDate() + " | Archive No: " + file.archive);
+    printRecordDocument(file);
 });
 
 /* ===== FILE DOCUMENT (shown by the View button, printed by its Print button) ===== */
@@ -1453,6 +1454,32 @@ td[colspan="3"]{width:81%}
 </body></html>`;
 }
 
+/* ===== PRINT the file record document (same layout as the View button) =====
+   Used by BOTH the row Print button and the Print button inside the viewer. */
+function printRecordDocument(file) {
+    if (!file) return;
+
+    const old = document.getElementById("printFrame");
+    if (old) old.remove();
+
+    const frame = document.createElement("iframe");
+    frame.id = "printFrame";
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    frame.onload = function() {
+        setTimeout(function() {
+            try {
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+            } catch (err) {
+                alert("Could not open the print dialog: " + err.message);
+            }
+        }, 400);
+    };
+    frame.srcdoc = buildRecordDocument(file, false);
+    document.body.appendChild(frame);
+}
+
 /* ===== VIEW BUTTON: shows the file document ===== */
 const docViewer = document.getElementById("docViewer");
 const docFrame = document.getElementById("docFrame");
@@ -1477,27 +1504,7 @@ function closeViewer() {
 
 /* Print the document that is open in the viewer */
 function printViewedFile() {
-    if (!viewedFile) return;
-
-    const old = document.getElementById("printFrame");
-    if (old) old.remove();
-
-    const frame = document.createElement("iframe");
-    frame.id = "printFrame";
-    frame.setAttribute("aria-hidden", "true");
-    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-    frame.onload = function() {
-        setTimeout(function() {
-            try {
-                frame.contentWindow.focus();
-                frame.contentWindow.print();
-            } catch (err) {
-                alert("Could not open the print dialog: " + err.message);
-            }
-        }, 400);
-    };
-    frame.srcdoc = buildRecordDocument(viewedFile, false);
-    document.body.appendChild(frame);
+    printRecordDocument(viewedFile);
 }
 
 resultsBody.addEventListener("click", function(e) {
