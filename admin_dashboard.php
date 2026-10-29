@@ -1025,7 +1025,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
     </div>
 </div>
 
-<!-- PRINT AREA -->
+<!-- PRINT AREA (used by the list print buttons) -->
 <div class="print-only">
     <h2>දකුණු පළාත් සභා ලේකම් කාර්යාලය - <span id="printTitle">Archive Search Results</span></h2>
     <p id="printInfo"></p>
@@ -1192,7 +1192,8 @@ $("resultsBody").addEventListener("click", e => {
     const file = archiveFiles.find(f => f.archive === btn.dataset.arc);
     if (!file) return;
     if (btn.dataset.act === "view") openViewer(file);
-    if (btn.dataset.act === "print") printFiles([file], "Printed on " + printDate() + " | Archive No: " + file.archive);
+    /* Print ONE file: same document as the View button */
+    if (btn.dataset.act === "print") printRecordDocument(file);
     if (btn.dataset.act === "delete") openDelete(file);
 });
 
@@ -1524,10 +1525,11 @@ $("printDelUsers").addEventListener("click", () => {
     window.print();
 });
 
-/* ===== PRINT ===== */
+/* ===== PRINT (lists) ===== */
 function printDate() {
     return new Date().toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
 }
+/* Print a LIST of files as a table (used by the "Print Results" button) */
 function printFiles(list, infoText) {
     $("printTitle").textContent = "Archive Search Results";
     $("printInfo").textContent = infoText;
@@ -1568,7 +1570,7 @@ function viewApprovalDoc(f) {
     openViewer({...f, date: f.sentDate});
 }
 
-/* ===== FILE RECORD DOCUMENT (shown by the View button, printed by its Print button) ===== */
+/* ===== FILE RECORD DOCUMENT (shown by the View button, printed by the Print buttons) ===== */
 /* preview = true: on-screen viewer padding; false: print layout (A4 margins) */
 function buildRecordDocument(r, preview) {
     const has = v => v !== undefined && v !== null && v !== "";
@@ -1711,20 +1713,10 @@ td[colspan="3"]{width:81%}
 </body></html>`;
 }
 
-/* ===== VIEW BUTTON: shows the file record ===== */
-const docFrame = $("docFrame");
-let viewedFile = null;
-
-function openViewer(file) {
-    viewedFile = file;
-    $("docSub").textContent = (file.archive || "") + " | " + (file.name || "");
-    docFrame.srcdoc = buildRecordDocument(file, true);
-    openModal("docViewer");
-}
-
-/* Print the record that is open in the viewer */
-function printViewedFile() {
-    if (!viewedFile) return;
+/* ===== PRINT the file record document (same layout as the View button) =====
+   Used by BOTH the row Print button and the Print button inside the viewer. */
+function printRecordDocument(file) {
+    if (!file) return;
 
     const old = document.getElementById("printFrame");
     if (old) old.remove();
@@ -1743,8 +1735,24 @@ function printViewedFile() {
             }
         }, 400);
     };
-    frame.srcdoc = buildRecordDocument(viewedFile, false);
+    frame.srcdoc = buildRecordDocument(file, false);
     document.body.appendChild(frame);
+}
+
+/* ===== VIEW BUTTON: shows the file record ===== */
+const docFrame = $("docFrame");
+let viewedFile = null;
+
+function openViewer(file) {
+    viewedFile = file;
+    $("docSub").textContent = (file.archive || "") + " | " + (file.name || "");
+    docFrame.srcdoc = buildRecordDocument(file, true);
+    openModal("docViewer");
+}
+
+/* Print the record that is open in the viewer */
+function printViewedFile() {
+    printRecordDocument(viewedFile);
 }
 $("docPrintBtn").addEventListener("click", printViewedFile);
 
