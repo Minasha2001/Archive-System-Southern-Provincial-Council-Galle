@@ -217,6 +217,13 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 .role-user{background:#e8f0ff;color:#1f4fa8;border-color:#cfdffc}
 .role-subject{background:#f1e9fb;color:#5b2f99;border-color:#dccaf3}
 
+/* File Location badge (same as the user dashboard): Rack / Row / Section */
+.rack-pill{display:inline-flex;align-items:stretch;overflow:hidden;border:1px solid #e0cf9f;border-radius:6px;background:#fffaf0;font-size:var(--fs-xs);font-weight:700;line-height:1;white-space:nowrap}
+.rack-pill b{padding:5px 9px;color:#6b5326;font-weight:700}
+.rack-pill b+b{border-left:1px solid #e0cf9f}
+.rack-pill i{display:grid;place-items:center;padding:5px 10px;font-style:normal;font-family:var(--serif);color:#fff;background:linear-gradient(135deg,var(--navy),var(--navy-2))}
+.rack-empty{color:var(--muted)}
+
 /* Row buttons: smaller, quieter */
 .row-btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:6px;border:1px solid #d3dcea;background:#fff;color:#27487a;font-size:var(--fs-xs);font-weight:600;transition:.2s;box-shadow:0 1px 2px rgba(16,37,71,.06)}
 .row-btn i{font-size:11px;color:var(--gold)}
@@ -592,15 +599,15 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                                 <div class="section-icon"><i class="fa-solid fa-table-list"></i></div>
                                 <div>
                                     <h2>Archive Search Results</h2>
-                                    <p>View, print or delete archive records.</p>
+                                    <p>Review the available archive records. View, print or delete them.</p>
                                 </div>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-outline" id="printAll"><i class="fa-solid fa-print"></i> Print Results</button>
                     </div>
 
-                    <div style="margin-bottom:14px">
+                    <div class="toolbar">
                         <span class="count-chip"><i class="fa-solid fa-folder"></i><span id="resultCount">0 files found</span></span>
+                        <button type="button" class="btn btn-outline" id="printAll"><i class="fa-solid fa-print"></i> Print Results</button>
                     </div>
 
                     <div class="table-wrapper results-scroll">
@@ -608,7 +615,8 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                             <thead>
                                 <tr>
                                     <th>No.</th><th>File Name</th><th>Department</th><th>Subject Number</th><th>File Number</th>
-                                    <th>Archive Number</th><th>Start Date</th><th>End Date</th><th>Pages</th><th>Added Date</th><th>Actions</th>
+                                    <th>Archive Number</th><th>File Location</th><th>Start Date</th><th>End Date</th><th>Pages</th>
+                                    <th>Added Date</th><th>Document</th><th>Print</th><th>Delete</th>
                                 </tr>
                             </thead>
                             <tbody id="resultsBody"></tbody>
@@ -690,7 +698,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                             <thead>
                                 <tr>
                                     <th>No.</th><th>File Name</th><th>Department</th><th>Subject Number</th><th>File Number</th>
-                                    <th>Archive Number</th><th>Deleted Date</th><th>Reason for Deletion</th><th>Action</th>
+                                    <th>Archive Number</th><th>File Location</th><th>Deleted Date</th><th>Reason for Deletion</th><th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="deletedBody"></tbody>
@@ -1045,6 +1053,7 @@ const deptLabels = {Institutions:"ආයතන(Institutions)",Councils:"සභ�
 const roleLabels = {user:"User",subject:"Subject Officer",admin:"Administrator"};
 
 let archiveFiles = [], deletedFiles = [], users = [], deletedUsers = [], filteredFiles = [], approvals = [], pendingUsers = [];
+let activeFilters = [];
 let currentUserId = 0;
 let csrfToken = "";
 
@@ -1121,6 +1130,41 @@ const localToday = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toI
 $("currentDate").textContent = now.toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
 $("footerYear").textContent = now.getFullYear();
 
+/* ----- File Location helpers (Rack No, Row, Section) - same as the user dashboard ----- */
+function hasValue(v) { return v !== undefined && v !== null && String(v).trim() !== ""; }
+
+/* File Location parts (accepts rackNo/rackRow/rackRoman or loc_rack_no/loc_row/loc_section from api.php) */
+function rackParts(f) {
+    const pick = (...vals) => vals.find(hasValue);
+    return {
+        no:  pick(f.rackNo, f.loc_rack_no),
+        row: pick(f.rackRow, f.loc_row),
+        sec: pick(f.rackRoman, f.loc_section)
+    };
+}
+
+/* Plain text, used in print table and record document: "Rack 5, Row 3, Section II" */
+function rackText(f) {
+    const r = rackParts(f);
+    const parts = [];
+    if (hasValue(r.no)) parts.push("Rack " + String(r.no).trim());
+    if (hasValue(r.row)) parts.push("Row " + String(r.row).trim());
+    if (hasValue(r.sec)) parts.push("Section " + String(r.sec).trim());
+    return parts.length ? parts.join(", ") : "-";
+}
+
+function hasRack(f) { const r = rackParts(f); return hasValue(r.no) || hasValue(r.row) || hasValue(r.sec); }
+
+/* Badge, used in the on-screen tables */
+function rackPill(f) {
+    if (!hasRack(f)) return `<span class="rack-empty">-</span>`;
+    const r = rackParts(f);
+    const rack = hasValue(r.no) ? `<b>Rack ${escapeHTML(String(r.no).trim())}</b>` : "";
+    const row = hasValue(r.row) ? `<b>Row ${escapeHTML(String(r.row).trim())}</b>` : "";
+    const rom = hasValue(r.sec) ? `<i>Section ${escapeHTML(String(r.sec).trim())}</i>` : "";
+    return `<span class="rack-pill" title="${escapeHTML(rackText(f))}">${rack}${row}${rom}</span>`;
+}
+
 /* ===== STATS (all cards update automatically) ===== */
 function refreshStats() {
     const active = activeFiles();
@@ -1143,10 +1187,17 @@ document.querySelectorAll(".nav-link[data-section]").forEach(l => l.addEventList
 
 /* ===== SEARCH (same filters as the user dashboard) ===== */
 function runSearch() {
-    const name = $("searchName").value.trim().toLowerCase();
+    const nameRaw = $("searchName").value.trim();
     const department = $("searchDepartment").value;
-    const subject = $("searchSubject").value.trim().toLowerCase();
-    const archive = $("searchArchive").value.trim().toLowerCase();
+    const subjectRaw = $("searchSubject").value.trim();
+    const archiveRaw = $("searchArchive").value.trim();
+    const name = nameRaw.toLowerCase(), subject = subjectRaw.toLowerCase(), archive = archiveRaw.toLowerCase();
+
+    activeFilters = [];
+    if (nameRaw) activeFilters.push("File Name: " + nameRaw);
+    if (department) activeFilters.push("Department: " + department);
+    if (subjectRaw) activeFilters.push("Subject No: " + subjectRaw);
+    if (archiveRaw) activeFilters.push("Archive No: " + archiveRaw);
 
     filteredFiles = activeFiles().filter(f =>
         (!name || f.name.toLowerCase().includes(name)) &&
@@ -1172,16 +1223,15 @@ function renderResults() {
             <td>${deptPill(f.department)}</td>
             <td>${escapeHTML(f.subject)}</td>
             <td>${escapeHTML(f.fileNo)}</td>
-            <td style="font-weight:700;color:var(--navy-2)">${escapeHTML(f.archive)}</td>
+            <td style="font-weight:700;color:var(--navy-2);letter-spacing:.3px">${escapeHTML(f.archive)}</td>
+            <td>${rackPill(f)}</td>
             <td>${escapeHTML(f.start)}</td>
             <td>${escapeHTML(f.end)}</td>
             <td>${escapeHTML(f.pages)}</td>
-            <td>${escapeHTML(f.date)}</td>
-            <td><div class="td-actions">
-                <button type="button" class="row-btn view" data-act="view" data-arc="${escapeHTML(f.archive)}"><i class="fa-solid fa-eye"></i> View</button>
-                <button type="button" class="row-btn" data-act="print" data-arc="${escapeHTML(f.archive)}"><i class="fa-solid fa-print"></i> Print</button>
-                <button type="button" class="row-btn del" data-act="delete" data-arc="${escapeHTML(f.archive)}"><i class="fa-solid fa-trash-can"></i> Delete</button>
-            </div></td>
+            <td style="font-weight:600;color:#33466a">${escapeHTML(f.date)}</td>
+            <td><button type="button" class="row-btn view" data-act="view" data-arc="${escapeHTML(f.archive)}" aria-label="View ${escapeHTML(f.name)}"><i class="fa-solid fa-eye"></i> View</button></td>
+            <td><button type="button" class="row-btn" data-act="print" data-arc="${escapeHTML(f.archive)}" aria-label="Print ${escapeHTML(f.name)}"><i class="fa-solid fa-print"></i> Print</button></td>
+            <td><button type="button" class="row-btn del" data-act="delete" data-arc="${escapeHTML(f.archive)}" aria-label="Delete ${escapeHTML(f.name)}"><i class="fa-solid fa-trash-can"></i> Delete</button></td>
         </tr>`).join("");
     refreshStats();
 }
@@ -1358,6 +1408,7 @@ function renderDeleted() {
             <td>${escapeHTML(f.subject)}</td>
             <td>${escapeHTML(f.fileNo)}</td>
             <td style="font-weight:700;color:var(--navy-2)">${escapeHTML(f.archive)}</td>
+            <td>${rackPill(f)}</td>
             <td>${escapeHTML(f.deletedDate)}</td>
             <td class="reason-cell">${escapeHTML(f.reason)}</td>
             <td><button type="button" class="row-btn restore" data-arc="${escapeHTML(f.archive)}"><i class="fa-solid fa-rotate-left"></i> Restore</button></td>
@@ -1533,20 +1584,22 @@ function printDate() {
 function printFiles(list, infoText) {
     $("printTitle").textContent = "Archive Search Results";
     $("printInfo").textContent = infoText;
-    $("printHead").innerHTML = "<tr><th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>File No.</th><th>Archive No.</th><th>Start Date</th><th>End Date</th><th>Pages</th></tr>";
-    $("printBody").innerHTML = list.map((f, i) => `<tr><td>${i + 1}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(deptLabels[f.department] || f.department)}</td><td>${escapeHTML(f.subject)}</td><td>${escapeHTML(f.fileNo)}</td><td>${escapeHTML(f.archive)}</td><td>${escapeHTML(f.start)}</td><td>${escapeHTML(f.end)}</td><td>${escapeHTML(f.pages)}</td></tr>`).join("");
+    $("printHead").innerHTML = "<tr><th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>File No.</th><th>Archive No.</th><th>File Location</th><th>Start Date</th><th>End Date</th><th>Pages</th></tr>";
+    $("printBody").innerHTML = list.map((f, i) => `<tr><td>${i + 1}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(deptLabels[f.department] || f.department)}</td><td>${escapeHTML(f.subject)}</td><td>${escapeHTML(f.fileNo)}</td><td>${escapeHTML(f.archive)}</td><td>${escapeHTML(rackText(f))}</td><td>${escapeHTML(f.start)}</td><td>${escapeHTML(f.end)}</td><td>${escapeHTML(f.pages)}</td></tr>`).join("");
     window.print();
 }
 $("printAll").addEventListener("click", () => {
     if (!filteredFiles.length) { toast("There are no results to print.", true); return; }
-    printFiles(filteredFiles, "Printed on " + printDate() + " | " + filteredFiles.length + " file(s)");
+    const info = "Printed on " + printDate() + " | " + filteredFiles.length + " file(s)" +
+        (activeFilters.length ? " | Filters: " + activeFilters.join(", ") : "");
+    printFiles(filteredFiles, info);
 });
 $("printDeleted").addEventListener("click", () => {
     if (!shownDeleted.length) { toast("There are no deleted files to print.", true); return; }
     $("printTitle").textContent = "Deleted Files";
     $("printInfo").textContent = "Printed on " + printDate() + " | " + shownDeleted.length + " file(s)";
-    $("printHead").innerHTML = "<tr><th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>Archive No.</th><th>Deleted Date</th><th>Reason</th></tr>";
-    $("printBody").innerHTML = shownDeleted.map((f, i) => `<tr><td>${i + 1}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(deptLabels[f.department] || f.department)}</td><td>${escapeHTML(f.subject)}</td><td>${escapeHTML(f.archive)}</td><td>${escapeHTML(f.deletedDate)}</td><td>${escapeHTML(f.reason)}</td></tr>`).join("");
+    $("printHead").innerHTML = "<tr><th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>Archive No.</th><th>File Location</th><th>Deleted Date</th><th>Reason</th></tr>";
+    $("printBody").innerHTML = shownDeleted.map((f, i) => `<tr><td>${i + 1}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(deptLabels[f.department] || f.department)}</td><td>${escapeHTML(f.subject)}</td><td>${escapeHTML(f.archive)}</td><td>${escapeHTML(rackText(f))}</td><td>${escapeHTML(f.deletedDate)}</td><td>${escapeHTML(f.reason)}</td></tr>`).join("");
     window.print();
 });
 
@@ -1590,8 +1643,9 @@ function buildRecordDocument(r, preview) {
         return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
     };
 
-    // Key facts bar: Archive Number always, Archive Tree Number when the record has one
-    const keys = [["Archive Number", r.archive]];
+    // Key facts bar: Archive Number and File Location always,
+    // Archive Tree Number when the record has one
+    const keys = [["Archive Number", r.archive], ["File Location", rackText(r)]];
     if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
     const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
         + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
@@ -1605,6 +1659,15 @@ function buildRecordDocument(r, preview) {
         ["File Start Date", r.start],
         ["File End Date", r.end]
     ]);
+
+    // File Location section: Rack No, Row, Section (always shown)
+    const rp = rackParts(r);
+    sectionNo++;
+    const location = `<div class="sec">
+        <div class="sec-title"><span class="no">${sectionNo}</span>File Location</div>
+        <div class="stats" style="grid-template-columns:repeat(3,1fr)">`
+        + [["Rack No", rp.no], ["Row", rp.row], ["Section", rp.sec]].map(s => `<div class="stat"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
+        + `</div></div>`;
 
     // Page details: Right/Left Side are shown only when the record has them
     const stats = [];
@@ -1708,6 +1771,7 @@ td[colspan="3"]{width:81%}
     </div>
 
     ${info}
+    ${location}
     ${pages}
 </div></div>
 </body></html>`;
