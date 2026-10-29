@@ -151,6 +151,12 @@ section[id]{scroll-margin-top:84px}
 .input-wrap:focus-within>i{color:var(--blue)}
 .input-wrap input,.input-wrap select,.input-wrap textarea{width:100%;min-width:0;height:100%;border:0;outline:0;background:transparent;color:var(--ink);font-size:var(--fs-md)}
 .input-wrap input::placeholder{color:#9aa8bf}
+/* Password show/hide eye button */
+.input-wrap .password-toggle{flex:0 0 30px;width:30px;height:30px;padding:0;border:0;border-radius:8px;background:transparent;color:#71819a;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s,color .2s}
+.input-wrap .password-toggle:hover{background:#edf3fb;color:var(--blue)}
+.input-wrap .password-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.input-wrap .password-toggle i{font-size:14px;color:inherit}
+.input-wrap .password-toggle:active{transform:scale(.96)}
 .input-wrap select{cursor:pointer;appearance:none;-webkit-appearance:none;padding-right:20px;
     background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%237a8ca8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat right 2px center}
 .btn{position:relative;overflow:hidden;min-height:42px;padding:0 20px;border:1px solid transparent;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:var(--fs-md);font-weight:600;transition:.2s}
@@ -751,15 +757,15 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                     <div class="password-grid">
                         <div class="field">
                             <label for="currentPassword">Current Password</label>
-                            <div class="input-wrap"><i class="fa-solid fa-lock"></i><input type="password" id="currentPassword" placeholder="Enter current password..." autocomplete="current-password" required></div>
+                            <div class="input-wrap"><i class="fa-solid fa-lock"></i><input type="password" id="currentPassword" placeholder="Enter current password..." autocomplete="current-password" required><button type="button" class="password-toggle" data-target="currentPassword" aria-label="Show current password" aria-pressed="false" title="Show password"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i></button></div>
                         </div>
                         <div class="field">
                             <label for="newPassword">New Password</label>
-                            <div class="input-wrap"><i class="fa-solid fa-key"></i><input type="password" id="newPassword" placeholder="At least 6 characters..." autocomplete="new-password" minlength="6" required></div>
+                            <div class="input-wrap"><i class="fa-solid fa-key"></i><input type="password" id="newPassword" placeholder="At least 6 characters..." autocomplete="new-password" minlength="6" required><button type="button" class="password-toggle" data-target="newPassword" aria-label="Show new password" aria-pressed="false" title="Show password"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i></button></div>
                         </div>
                         <div class="field">
                             <label for="confirmPassword">Confirm New Password</label>
-                            <div class="input-wrap"><i class="fa-solid fa-key"></i><input type="password" id="confirmPassword" placeholder="Re-enter new password..." autocomplete="new-password" minlength="6" required></div>
+                            <div class="input-wrap"><i class="fa-solid fa-key"></i><input type="password" id="confirmPassword" placeholder="Re-enter new password..." autocomplete="new-password" minlength="6" required><button type="button" class="password-toggle" data-target="confirmPassword" aria-label="Show confirm password" aria-pressed="false" title="Show password"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i></button></div>
                         </div>
                     </div>
 
@@ -1733,6 +1739,38 @@ profileToggle.addEventListener("click", function(e) {
 });
 profilePopover.addEventListener("click", e => e.stopPropagation());
 document.addEventListener("click", closeProfilePopover);
+
+/* ===== PASSWORD SHOW / HIDE EYE BUTTONS ===== */
+function setPasswordVisibility(button, show) {
+    const inputId = button.dataset.target;
+    const input = document.getElementById(inputId);
+    const icon = button.querySelector("i");
+    if (!input || !icon) return;
+
+    input.type = show ? "text" : "password";
+    icon.classList.toggle("fa-eye", show);
+    icon.classList.toggle("fa-eye-slash", !show);
+    button.setAttribute("aria-pressed", String(show));
+
+    const label = show ? "Hide" : "Show";
+    button.setAttribute("aria-label", label + " " + inputId.replace(/([A-Z])/g, " $1").toLowerCase());
+    button.title = label + " password";
+}
+
+document.querySelectorAll(".password-toggle[data-target]").forEach(button => {
+    button.addEventListener("click", function() {
+        const input = document.getElementById(this.dataset.target);
+        if (!input) return;
+        setPasswordVisibility(this, input.type === "password");
+    });
+});
+
+/* After clearing or successfully changing the password, hide all password fields. */
+$("passwordForm").addEventListener("reset", function() {
+    document.querySelectorAll(".password-toggle[data-target]").forEach(button => {
+        setPasswordVisibility(button, false);
+    });
+});
 
 /* ===== CHANGE PASSWORD ===== */
 function showPasswordAlert(message, isError) {
