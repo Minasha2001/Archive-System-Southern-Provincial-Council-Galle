@@ -410,7 +410,7 @@ tbody tr:hover{background:linear-gradient(90deg,#fff7e6,#f1f6ff 40%)}
 tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
 td:first-child{color:var(--navy-2)}
 #resultsTable td:nth-child(6){font-weight:700;color:var(--navy-2);letter-spacing:.3px}
-#resultsTable td:nth-child(9){font-weight:600;color:#33466a}
+#resultsTable td:nth-child(10){font-weight:600;color:#33466a}
 .file-icon.doc{background:#eaf1fd;padding:6px;border-radius:8px;font-size:13px;width:28px;height:28px;display:inline-grid;place-items:center}
 
 /* Department pills */
@@ -640,6 +640,23 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 .doc-body{padding:16px;background:#dfe5ef;align-items:stretch}
 .doc-body iframe.doc-frame{width:100%;max-width:794px;min-height:480px;box-shadow:0 6px 24px rgba(16,37,71,.22)}
 @media (max-width:700px){.doc-body{padding:8px}}
+
+/* ----- RACK NUMBER (row text + Roman numeral drop box in one field) ----- */
+.input-wrap.rack-wrap{gap:10px}
+.input-wrap.rack-wrap input{flex:1;width:auto;height:28px}
+.input-wrap.rack-wrap input+input{padding-left:12px;border-left:1px solid #d9cfb8}
+.input-wrap.rack-wrap select{
+    flex:none;width:88px;height:28px;padding-left:12px;padding-right:20px;
+    border-left:1px solid #d9cfb8;font-weight:700;color:var(--navy-2);
+}
+.field .hint{display:block;margin-top:5px;font-size:var(--fs-xs);color:var(--muted)}
+
+/* Rack badge in tables: row number + Roman numeral */
+.rack-pill{display:inline-flex;align-items:stretch;overflow:hidden;border:1px solid #e0cf9f;border-radius:6px;background:#fffaf0;font-size:var(--fs-xs);font-weight:700;line-height:1}
+.rack-pill b{padding:5px 9px;color:#6b5326;font-weight:700}
+.rack-pill b+b{border-left:1px solid #e0cf9f}
+.rack-pill i{display:grid;place-items:center;padding:5px 9px;font-style:normal;font-family:var(--serif);color:#fff;background:linear-gradient(135deg,var(--navy),var(--navy-2))}
+.rack-empty{color:var(--muted)}
 </style>
 </head>
 
@@ -869,6 +886,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                                 <th>Subject Number</th>
                                 <th>File Number</th>
                                 <th>Archive Number</th>
+                                <th>File Location</th>
                                 <th>Start Date</th>
                                 <th>End Date</th>
                                 <th>Pages</th>
@@ -896,7 +914,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                             <thead>
                                 <tr>
                                     <th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>File No.</th>
-                                    <th>Archive No.</th><th>Start Date</th><th>End Date</th><th>Pages</th>
+                                    <th>Archive No.</th><th>File Location</th><th>Start Date</th><th>End Date</th><th>Pages</th>
                                 </tr>
                             </thead>
                             <tbody id="printBody"></tbody>
@@ -967,6 +985,23 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                             <div class="input-wrap"><i class="fa-regular fa-calendar-check"></i><input type="date" id="endDate" required></div>
                         </div>
 
+                        <!-- File Location: rack no + row typed inside one field, plus section drop box -->
+                        <div class="field">
+                            <label for="rackNo">File Location</label>
+                            <div class="input-wrap rack-wrap">
+                                <i class="fa-solid fa-table-cells-large"></i>
+                                <input type="text" id="rackNo" maxlength="20" placeholder="Rack No" aria-label="Rack number" autocomplete="off" required>
+                                <input type="text" id="rackRow" maxlength="20" placeholder="Row" aria-label="Row number" autocomplete="off" required>
+                                <select id="rackRoman" aria-label="Section (Roman numeral)" required>
+                                    <option value="">Section</option>
+                                    <option value="I">I</option>
+                                    <option value="II">II</option>
+                                    <option value="III">III</option>
+                                </select>
+                            </div>
+                            <small class="hint">Rack no., row, and section (I, II, III)</small>
+                        </div>
+
                         <div class="page-numbers">
                             <div class="page-numbers-title"><i class="fa-solid fa-book-open"></i> Page Numbers</div>
                             <div class="page-numbers-grid">
@@ -1027,6 +1062,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                                 <th>Department</th>
                                 <th>Subject Number</th>
                                 <th>File Number</th>
+                                <th>File Location</th>
                                 <th>Start Date</th>
                                 <th>End Date</th>
                                 <th>Right Side</th>
@@ -1124,6 +1160,7 @@ const deptLabels = {
     Councils:"සභා(Councils)",
     Accounts:"ගිණුම්(Accounts)"
 };
+const ROMAN_OPTIONS = ["I", "II", "III"];
 let activeFilters = [];
 let archiveFiles = [];
 let filteredFiles = [];
@@ -1195,6 +1232,29 @@ function deptPill(dep) {
     return `<span class="dept-pill dept-${escapeHTML(dep)}">${escapeHTML(deptLabels[dep] || dep)}</span>`;
 }
 
+/* ----- Rack Number helpers (row number + Roman numeral) ----- */
+function hasValue(v) { return v !== undefined && v !== null && String(v).trim() !== ""; }
+
+/* Plain text, used in print table and record document: "Rack 5, Row 3, Section II" */
+function rackText(f) {
+    const parts = [];
+    if (hasValue(f.rackNo)) parts.push("Rack " + String(f.rackNo).trim());
+    if (hasValue(f.rackRow)) parts.push("Row " + String(f.rackRow).trim());
+    if (hasValue(f.rackRoman)) parts.push("Section " + String(f.rackRoman).trim());
+    return parts.length ? parts.join(", ") : "-";
+}
+
+function hasRack(f) { return hasValue(f.rackNo) || hasValue(f.rackRow) || hasValue(f.rackRoman); }
+
+/* Badge, used in the on-screen tables */
+function rackPill(f) {
+    if (!hasRack(f)) return `<span class="rack-empty">-</span>`;
+    const rack = hasValue(f.rackNo) ? `<b>Rack ${escapeHTML(String(f.rackNo).trim())}</b>` : "";
+    const row = hasValue(f.rackRow) ? `<b>Row ${escapeHTML(String(f.rackRow).trim())}</b>` : "";
+    const rom = hasValue(f.rackRoman) ? `<i>${escapeHTML(String(f.rackRoman).trim())}</i>` : "";
+    return `<span class="rack-pill" title="${escapeHTML(rackText(f))}">${rack}${row}${rom}</span>`;
+}
+
 /* ===== SEARCH ===== */
 document.getElementById("searchForm").addEventListener("submit", function(e) {
     e.preventDefault();
@@ -1263,6 +1323,7 @@ function renderResults() {
             <td>${escapeHTML(file.subject)}</td>
             <td>${escapeHTML(file.fileNo)}</td>
             <td>${escapeHTML(file.archive)}</td>
+            <td>${rackPill(file)}</td>
             <td>${escapeHTML(file.start)}</td>
             <td>${escapeHTML(file.end)}</td>
             <td>${escapeHTML(file.pages)}</td>
@@ -1292,6 +1353,7 @@ function printFiles(list, infoText) {
             <td>${escapeHTML(file.subject)}</td>
             <td>${escapeHTML(file.fileNo)}</td>
             <td>${escapeHTML(file.archive)}</td>
+            <td>${escapeHTML(rackText(file))}</td>
             <td>${escapeHTML(file.start)}</td>
             <td>${escapeHTML(file.end)}</td>
             <td>${escapeHTML(file.pages)}</td>
@@ -1331,21 +1393,29 @@ function buildRecordDocument(r, preview) {
         return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
     };
 
-    // Key facts bar: Archive Number always, Archive Tree Number when the record has one
+    // Key facts bar: Archive Number always, File Location when the record has one,
+    // Archive Tree Number when the record has one
     const keys = [["Archive Number", r.archive]];
+    if (hasRack(r)) keys.push(["File Location", rackText(r)]);
     if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
     const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
         + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
         + `</div>`;
 
-    const info = section("File Information", [
+    const infoItems = [
         ["Department", deptLabels[r.department] || r.department],
         ["Subject Number", r.subject],
         ["File Number", r.fileNo],
         ["Added Date", r.date],
         ["File Start Date", r.start],
         ["File End Date", r.end]
-    ]);
+    ];
+    if (hasRack(r)) {
+        infoItems.push(["Rack No.", r.rackNo]);
+        infoItems.push(["Row", r.rackRow]);
+        infoItems.push(["Section", r.rackRoman]);
+    }
+    const info = section("File Information", infoItems);
 
     // Page details: Right/Left Side are shown only when the record has them
     const stats = [];
@@ -1549,6 +1619,7 @@ function renderSubmissions() {
             <td>${deptPill(f.department)}</td>
             <td>${escapeHTML(f.subject)}</td>
             <td>${escapeHTML(f.fileNo)}</td>
+            <td>${rackPill(f)}</td>
             <td>${escapeHTML(f.start)}</td>
             <td>${escapeHTML(f.end)}</td>
             <td>${escapeHTML(f.right ?? "-")}</td>
@@ -1593,12 +1664,18 @@ document.getElementById("submitForm").addEventListener("submit", async function(
     const startDate = document.getElementById("startDate").value;
     const endDate = document.getElementById("endDate").value;
     const submitDate = document.getElementById("submissionDate").value;
+    const rackNo = document.getElementById("rackNo").value.trim();
+    const rackRow = document.getElementById("rackRow").value.trim();
+    const rackRoman = document.getElementById("rackRoman").value;
     const frontPage = Number(document.getElementById("frontPage").value);
     const backPage = Number(document.getElementById("backPage").value);
     const totalPages = Number(document.getElementById("totalPages").value);
 
     if (endDate < startDate) { alert("File End Date must be on or after File Start Date."); return; }
     if (submitDate < endDate) { alert("Submission Date cannot be earlier than the File End Date."); return; }
+    if (!rackNo) { alert("Please enter the Rack No."); return; }
+    if (!rackRow) { alert("Please enter the Row."); return; }
+    if (!ROMAN_OPTIONS.includes(rackRoman)) { alert("Please choose the Section (I, II or III)."); return; }
     if (!Number.isInteger(frontPage) || frontPage < 0) { alert("Please enter a valid number of pages for the Right Side (0 or more)."); return; }
     if (!Number.isInteger(backPage) || backPage < 0) { alert("Please enter a valid number of pages for the Left Side (0 or more)."); return; }
     if (!Number.isInteger(totalPages) || totalPages < 1) { alert("Please enter a valid Total Pages number (1 or more)."); return; }
@@ -1613,6 +1690,9 @@ document.getElementById("submitForm").addEventListener("submit", async function(
             start: startDate,
             end: endDate,
             submitDate: submitDate,
+            rackNo: rackNo,
+            rackRow: rackRow,
+            rackRoman: rackRoman,
             right: frontPage,
             left: backPage,
             pages: totalPages
