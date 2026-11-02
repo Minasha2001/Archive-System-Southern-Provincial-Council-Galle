@@ -924,22 +924,6 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                     </div>
                 </div>
 
-                <!-- Print version: used by the "Print Results" button (all matching files) -->
-                <div class="print-only">
-                    <h2>දකුණු පළාත් සභා ලේකම් කාර්යාලය - Archive Search Results</h2>
-                    <p id="printInfo"></p>
-                    <div class="table-wrapper">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>File No.</th>
-                                    <th>Archive No.</th><th>Start Date</th><th>End Date</th><th>Pages</th>
-                                </tr>
-                            </thead>
-                            <tbody id="printBody"></tbody>
-                        </table>
-                    </div>
-                </div>
             </section>
 
             <!-- SUBMIT -->
@@ -1371,26 +1355,6 @@ function printDate() {
     return new Date().toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
 }
 
-/* Print a LIST of files as a table (used by the "Print Results" button). No File Location column. */
-function printFiles(list, infoText) {
-    document.getElementById("printInfo").textContent = infoText;
-
-    document.getElementById("printBody").innerHTML = list.map((file, i) => `
-        <tr>
-            <td>${i + 1}</td>
-            <td>${escapeHTML(file.name)}</td>
-            <td>${escapeHTML(deptLabels[file.department] || file.department)}</td>
-            <td>${escapeHTML(file.subject)}</td>
-            <td>${escapeHTML(file.fileNo)}</td>
-            <td>${escapeHTML(file.archive)}</td>
-            <td>${escapeHTML(file.start)}</td>
-            <td>${escapeHTML(file.end)}</td>
-            <td>${escapeHTML(file.pages)}</td>
-        </tr>`).join("");
-
-    window.print();
-}
-
 /* Print ONE file (Print button in each row): same document as the View button */
 resultsBody.addEventListener("click", function(e) {
     const btn = e.target.closest(".row-print-btn");
@@ -1402,74 +1366,28 @@ resultsBody.addEventListener("click", function(e) {
     printRecordDocument(file);
 });
 
-/* ===== FILE DOCUMENT (shown by the View button, printed by its Print button) ===== */
-/* preview = true: on-screen viewer padding; false: print layout */
-/* NOTE: this document does NOT show the File Location. */
-function buildRecordDocument(r, preview) {
-    const has = v => v !== undefined && v !== null && v !== "";
-    const val = v => escapeHTML(has(v) ? v : "-");
+/* ===== FILE RECORD DOCUMENTS =====
+   Used by the View button, the row Print button and the "Print Results" button.
+   View / row Print = ONE file.  Print Results = ONE document with every searched file.
+   These documents do NOT show the File Location. */
 
-    // Builds a numbered section with label/value pairs, two pairs per row.
-    let sectionNo = 0;
-    const section = (title, items) => {
-        sectionNo++;
-        let rows = "";
-        for (let i = 0; i < items.length; i += 2) {
-            const a = items[i], b = items[i + 1];
-            rows += `<tr><th>${escapeHTML(a[0])}</th><td${b ? "" : ' colspan="3"'}>${val(a[1])}</td>`
-                 + (b ? `<th>${escapeHTML(b[0])}</th><td>${val(b[1])}</td>` : "")
-                 + `</tr>`;
-        }
-        return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
-    };
-
-    // Key facts bar: Archive Number always,
-    // Archive Tree Number when the record has one
-    const keys = [["Archive Number", r.archive]];
-    if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
-    const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
-        + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
-        + `</div>`;
-
-    const infoItems = [
-        ["Department", deptLabels[r.department] || r.department],
-        ["Subject Number", r.subject],
-        ["File Number", r.fileNo],
-        ["Added Date", r.date],
-        ["File Start Date", r.start],
-        ["File End Date", r.end]
-    ];
-    const info = section("File Information", infoItems);
-
-    // Page details: Right/Left Side are shown only when the record has them
-    const stats = [];
-    if (has(r.right)) stats.push(["Right Side", r.right, false]);
-    if (has(r.left)) stats.push(["Left Side", r.left, false]);
-    stats.push(["Total Pages", r.pages, true]);
-    sectionNo++;
-    const pages = `<div class="sec">
-        <div class="sec-title"><span class="no">${sectionNo}</span>Page Details</div>
-        <div class="stats" style="grid-template-columns:repeat(${stats.length},1fr)">`
-        + stats.map(s => `<div class="stat${s[2] ? " total" : ""}"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
-        + `</div></div>`;
-
-    return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
-<base href="${escapeHTML(document.baseURI)}">
-<title>Archive File - ${escapeHTML(r.archive)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
-<style>
+function recordCSS(preview) {
+    return `
 @page{size:A4;margin:0}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 body{font-family:'Plus Jakarta Sans','Noto Sans Sinhala',Arial,sans-serif;color:#14233d;font-size:12.5px;line-height:1.55;margin:0;background:#fff}
-${preview ? "body{padding:26px 30px}" : "body{padding:12mm}"}
+${preview ? ".rec{padding:26px 30px}" : ".rec{padding:12mm}"}
+@media print{
+    .rec{break-after:page;page-break-after:always}
+    .rec:last-child{break-after:auto;page-break-after:auto}
+}
 
 /* Double-line page frame */
 .sheet{border:2px solid #0b2146;padding:6px}
 .page{position:relative;border:1px solid #d4a24a;padding:24px 30px 22px;overflow:hidden}
 .page>*:not(.wm){position:relative;z-index:1}
 .wm{position:absolute;left:50%;top:52%;width:320px;max-width:60%;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
-@media print{.page{min-height:265mm;display:flex;flex-direction:column}}
+@media print{.page{min-height:262mm;display:flex;flex-direction:column}}
 
 /* Letterhead */
 .letterhead{text-align:center}
@@ -1517,9 +1435,63 @@ td[colspan="3"]{width:81%}
 .stat.total{background:#0b2146;border-color:#0b2146}
 .stat.total .n{color:#fff}
 .stat.total .t{color:#f0cf8a}
-</style></head>
-<body>
-<div class="sheet"><div class="page">
+`;
+}
+
+/* One full record sheet (one A4 page) for ONE file.
+   meta (optional) = {index, total, info}: used when many files are printed in one document. */
+function recordSheet(r, meta) {
+    const has = v => v !== undefined && v !== null && v !== "";
+    const val = v => escapeHTML(has(v) ? v : "-");
+
+    // Builds a numbered section with label/value pairs, two pairs per row.
+    let sectionNo = 0;
+    const section = (title, items) => {
+        sectionNo++;
+        let rows = "";
+        for (let i = 0; i < items.length; i += 2) {
+            const a = items[i], b = items[i + 1];
+            rows += `<tr><th>${escapeHTML(a[0])}</th><td${b ? "" : ' colspan="3"'}>${val(a[1])}</td>`
+                 + (b ? `<th>${escapeHTML(b[0])}</th><td>${val(b[1])}</td>` : "")
+                 + `</tr>`;
+        }
+        return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
+    };
+
+    // Key facts bar: Archive Number always, Archive Tree Number when the record has one
+    const keys = [["Archive Number", r.archive]];
+    if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
+    const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
+        + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
+        + `</div>`;
+
+    const info = section("File Information", [
+        ["Department", deptLabels[r.department] || r.department],
+        ["Subject Number", r.subject],
+        ["File Number", r.fileNo],
+        ["Added Date", r.date],
+        ["File Start Date", r.start],
+        ["File End Date", r.end]
+    ]);
+
+    // Page details: Right/Left Side are shown only when the record has them
+    const stats = [];
+    if (has(r.right)) stats.push(["Right Side", r.right, false]);
+    if (has(r.left)) stats.push(["Left Side", r.left, false]);
+    stats.push(["Total Pages", r.pages, true]);
+    sectionNo++;
+    const pages = `<div class="sec">
+        <div class="sec-title"><span class="no">${sectionNo}</span>Page Details</div>
+        <div class="stats" style="grid-template-columns:repeat(${stats.length},1fr)">`
+        + stats.map(s => `<div class="stat${s[2] ? " total" : ""}"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
+        + `</div></div>`;
+
+    const subtitle = meta
+        ? `<div class="subtitle">Record ${meta.index} of ${meta.total}</div>`
+          + (meta.info ? `<div class="subtitle">${escapeHTML(meta.info)}</div>` : "")
+        : `<div class="subtitle">Official record of an archived file</div>`;
+
+    return `<div class="rec"><div class="sheet"><div class="page">
     <img class="wm" src="logo.webp" alt="" onerror="this.style.display='none'">
 
     <div class="letterhead">
@@ -1532,7 +1504,7 @@ td[colspan="3"]{width:81%}
 
     <div class="doc-title">
         <h1>Archive File Record</h1>
-        <div class="subtitle">Official record of an archived file</div>
+        ${subtitle}
     </div>
 
     ${keybar}
@@ -1544,18 +1516,37 @@ td[colspan="3"]{width:81%}
 
     ${info}
     ${pages}
-</div></div>
+</div></div></div>`;
+}
 
-
-
+/* Wraps one or more record sheets into a complete HTML document */
+function wrapRecordDocument(title, sheets, preview) {
+    return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<base href="${escapeHTML(document.baseURI)}">
+<title>${escapeHTML(title)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<style>${recordCSS(preview)}</style></head>
+<body>
+${sheets}
 </body></html>`;
 }
 
-/* ===== PRINT the file record document (same layout as the View button) =====
-   Used by BOTH the row Print button and the Print button inside the viewer. */
-function printRecordDocument(file) {
-    if (!file) return;
+/* ONE file (View button, row Print button, Print button inside the viewer) */
+function buildRecordDocument(r, preview) {
+    return wrapRecordDocument("Archive File - " + (r.archive || ""), recordSheet(r), preview);
+}
 
+/* ALL searched files in ONE document (Print Results button): one record page per file */
+function buildResultsDocument(list, infoText) {
+    const sheets = list.map((file, i) =>
+        recordSheet(file, {index: i + 1, total: list.length, info: infoText})
+    ).join("");
+    return wrapRecordDocument("Archive Search Results", sheets, false);
+}
+
+/* Prints any HTML document through a hidden iframe */
+function printHtmlDocument(html) {
     const old = document.getElementById("printFrame");
     if (old) old.remove();
 
@@ -1571,10 +1562,16 @@ function printRecordDocument(file) {
             } catch (err) {
                 alert("Could not open the print dialog: " + err.message);
             }
-        }, 400);
+        }, 600);
     };
-    frame.srcdoc = buildRecordDocument(file, false);
+    frame.srcdoc = html;
     document.body.appendChild(frame);
+}
+
+/* Print ONE file: same document as the View button */
+function printRecordDocument(file) {
+    if (!file) return;
+    printHtmlDocument(buildRecordDocument(file, false));
 }
 
 /* ===== VIEW BUTTON: shows the file document ===== */
@@ -1743,7 +1740,7 @@ document.getElementById("submitForm").addEventListener("reset", function() {
     }, 0);
 });
 
-/* ===== PRINT ALL MATCHING RESULTS ===== */
+/* ===== PRINT ALL MATCHING RESULTS: one document, full details of every searched file ===== */
 document.getElementById("printResultsBtn").addEventListener("click", function() {
     if (!filteredFiles.length) {
         alert("There are no matching files to print. Change the filters and search again.");
@@ -1751,7 +1748,7 @@ document.getElementById("printResultsBtn").addEventListener("click", function() 
     }
     const info = "Printed on " + printDate() + " | " + filteredFiles.length + " file(s)" +
         (activeFilters.length ? " | Filters: " + activeFilters.join(", ") : "");
-    printFiles(filteredFiles, info);
+    printHtmlDocument(buildResultsDocument(filteredFiles, info));
 });
 
 /* ===== CHANGE PASSWORD ===== */
