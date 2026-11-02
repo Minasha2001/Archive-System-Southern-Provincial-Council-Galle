@@ -1130,7 +1130,8 @@ const localToday = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toI
 $("currentDate").textContent = now.toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
 $("footerYear").textContent = now.getFullYear();
 
-/* ----- File Location helpers (Rack No, Row, Section) - same as the user dashboard ----- */
+/* ----- File Location helpers (Rack No, Row, Section) -----
+   Used ONLY by the Archive Search Results and Deleted Files tables. */
 function hasValue(v) { return v !== undefined && v !== null && String(v).trim() !== ""; }
 
 /* File Location parts (accepts rackNo/rackRow/rackRoman or loc_rack_no/loc_row/loc_section from api.php) */
@@ -1143,7 +1144,7 @@ function rackParts(f) {
     };
 }
 
-/* Plain text, used in print table and record document: "Rack 5, Row 3, Section II" */
+/* Plain text, used only as the badge tooltip: "Rack 5, Row 3, Section II" */
 function rackText(f) {
     const r = rackParts(f);
     const parts = [];
@@ -1576,7 +1577,7 @@ $("printDelUsers").addEventListener("click", () => {
     window.print();
 });
 
-/* ===== PRINT (lists) ===== */
+/* ===== PRINT (lists) - File Location is NOT included ===== */
 function printDate() {
     return new Date().toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
 }
@@ -1584,8 +1585,8 @@ function printDate() {
 function printFiles(list, infoText) {
     $("printTitle").textContent = "Archive Search Results";
     $("printInfo").textContent = infoText;
-    $("printHead").innerHTML = "<tr><th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>File No.</th><th>Archive No.</th><th>File Location</th><th>Start Date</th><th>End Date</th><th>Pages</th></tr>";
-    $("printBody").innerHTML = list.map((f, i) => `<tr><td>${i + 1}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(deptLabels[f.department] || f.department)}</td><td>${escapeHTML(f.subject)}</td><td>${escapeHTML(f.fileNo)}</td><td>${escapeHTML(f.archive)}</td><td>${escapeHTML(rackText(f))}</td><td>${escapeHTML(f.start)}</td><td>${escapeHTML(f.end)}</td><td>${escapeHTML(f.pages)}</td></tr>`).join("");
+    $("printHead").innerHTML = "<tr><th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>File No.</th><th>Archive No.</th><th>Start Date</th><th>End Date</th><th>Pages</th></tr>";
+    $("printBody").innerHTML = list.map((f, i) => `<tr><td>${i + 1}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(deptLabels[f.department] || f.department)}</td><td>${escapeHTML(f.subject)}</td><td>${escapeHTML(f.fileNo)}</td><td>${escapeHTML(f.archive)}</td><td>${escapeHTML(f.start)}</td><td>${escapeHTML(f.end)}</td><td>${escapeHTML(f.pages)}</td></tr>`).join("");
     window.print();
 }
 $("printAll").addEventListener("click", () => {
@@ -1598,8 +1599,8 @@ $("printDeleted").addEventListener("click", () => {
     if (!shownDeleted.length) { toast("There are no deleted files to print.", true); return; }
     $("printTitle").textContent = "Deleted Files";
     $("printInfo").textContent = "Printed on " + printDate() + " | " + shownDeleted.length + " file(s)";
-    $("printHead").innerHTML = "<tr><th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>Archive No.</th><th>File Location</th><th>Deleted Date</th><th>Reason</th></tr>";
-    $("printBody").innerHTML = shownDeleted.map((f, i) => `<tr><td>${i + 1}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(deptLabels[f.department] || f.department)}</td><td>${escapeHTML(f.subject)}</td><td>${escapeHTML(f.archive)}</td><td>${escapeHTML(rackText(f))}</td><td>${escapeHTML(f.deletedDate)}</td><td>${escapeHTML(f.reason)}</td></tr>`).join("");
+    $("printHead").innerHTML = "<tr><th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>Archive No.</th><th>Deleted Date</th><th>Reason</th></tr>";
+    $("printBody").innerHTML = shownDeleted.map((f, i) => `<tr><td>${i + 1}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(deptLabels[f.department] || f.department)}</td><td>${escapeHTML(f.subject)}</td><td>${escapeHTML(f.archive)}</td><td>${escapeHTML(f.deletedDate)}</td><td>${escapeHTML(f.reason)}</td></tr>`).join("");
     window.print();
 });
 
@@ -1623,7 +1624,8 @@ function viewApprovalDoc(f) {
     openViewer({...f, date: f.sentDate});
 }
 
-/* ===== FILE RECORD DOCUMENT (shown by the View button, printed by the Print buttons) ===== */
+/* ===== FILE RECORD DOCUMENT (shown by the View button, printed by the Print buttons) =====
+   File Location is NOT shown here. */
 /* preview = true: on-screen viewer padding; false: print layout (A4 margins) */
 function buildRecordDocument(r, preview) {
     const has = v => v !== undefined && v !== null && v !== "";
@@ -1643,9 +1645,9 @@ function buildRecordDocument(r, preview) {
         return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
     };
 
-    // Key facts bar: Archive Number and File Location always,
+    // Key facts bar: Archive Number always,
     // Archive Tree Number when the record has one
-    const keys = [["Archive Number", r.archive], ["File Location", rackText(r)]];
+    const keys = [["Archive Number", r.archive]];
     if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
     const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
         + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
@@ -1659,15 +1661,6 @@ function buildRecordDocument(r, preview) {
         ["File Start Date", r.start],
         ["File End Date", r.end]
     ]);
-
-    // File Location section: Rack No, Row, Section (always shown)
-    const rp = rackParts(r);
-    sectionNo++;
-    const location = `<div class="sec">
-        <div class="sec-title"><span class="no">${sectionNo}</span>File Location</div>
-        <div class="stats" style="grid-template-columns:repeat(3,1fr)">`
-        + [["Rack No", rp.no], ["Row", rp.row], ["Section", rp.sec]].map(s => `<div class="stat"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
-        + `</div></div>`;
 
     // Page details: Right/Left Side are shown only when the record has them
     const stats = [];
@@ -1771,7 +1764,6 @@ td[colspan="3"]{width:81%}
     </div>
 
     ${info}
-    ${location}
     ${pages}
 </div></div>
 </body></html>`;
