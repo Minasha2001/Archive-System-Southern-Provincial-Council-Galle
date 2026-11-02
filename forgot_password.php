@@ -3,8 +3,9 @@ require __DIR__ . '/config.php';
 
 /*
  * 2 step flow:
- *  1) username + registered NIC number ගැලපේ නම් one-time token එකක් සාදා ?token=... වෙත යොමු කරයි
+ *  1) username + registered email ගැලපේ නම් one-time token එකක් සාදා ?token=... වෙත යොමු කරයි
  *  2) නව password එක ඇතුළත් කිරීම
+ * (Mail server එකක් ඇත්නම් token link එක email කිරීමට වෙනස් කළ හැක)
  */
 $errors = [];
 $token  = $_GET['token'] ?? '';
@@ -24,9 +25,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Security check failed. Please reload the page and try again.';
     } elseif (($_POST['action'] ?? '') === 'request') {
         $username = trim($_POST['username'] ?? '');
-        $nic      = strtoupper(trim($_POST['nic'] ?? ''));
-        $st = $pdo->prepare('SELECT id FROM users WHERE username = ? AND nic = ? AND status = "active"');
-        $st->execute([$username, $nic]);
+        $email    = trim($_POST['email'] ?? '');
+        $st = $pdo->prepare('SELECT id FROM users WHERE username = ? AND email = ? AND status = "active"');
+        $st->execute([$username, $email]);
         if ($u = $st->fetch()) {
             $raw = bin2hex(random_bytes(24));
             $pdo->prepare('DELETE FROM password_resets WHERE user_id = ?')->execute([$u['id']]);
@@ -34,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ->execute([$u['id'], hash('sha256', $raw)]);
             header('Location: forgot_password.php?token=' . $raw); exit;
         }
-        $errors[] = 'No active account matches that username and NIC number.';
+        $errors[] = 'No active account matches that username and email address.';
     } elseif (($_POST['action'] ?? '') === 'reset' && $mode === 'reset') {
         $p1 = $_POST['password'] ?? ''; $p2 = $_POST['confirm_password'] ?? '';
         if (strlen($p1) < 6) $errors[] = 'Password must contain at least 6 characters.';
@@ -210,7 +211,7 @@ body{font-family:"Poppins",sans-serif;min-height:100vh;overflow:hidden;backgroun
             <h1 class="forgot-title">Forgot Password?</h1>
             <p class="forgot-subtitle">Southern Provincial Council Secretariat</p>
             <div class="title-line"></div>
-            <p class="instruction">Enter your username and registered NIC number below. We will help you reset your password.</p>
+            <p class="instruction">Enter your registered email address and username below. We will help you reset your password.</p>
         <?php endif; ?>
 
         <?php if ($errors): ?>
@@ -242,9 +243,9 @@ body{font-family:"Poppins",sans-serif;min-height:100vh;overflow:hidden;backgroun
             <div class="input-box"><i class="fa-solid fa-user"></i>
                 <input type="text" id="username" name="username" placeholder="Enter your username" value="<?= e($_POST['username'] ?? '') ?>" autocomplete="username" required></div>
 
-            <label class="form-label" for="nic">Registered NIC Number</label>
-            <div class="input-box"><i class="fa-solid fa-address-card"></i>
-                <input type="text" id="nic" name="nic" placeholder="Enter your NIC number" value="<?= e($_POST['nic'] ?? '') ?>" autocomplete="off" required></div>
+            <label class="form-label" for="email">Registered Email Address</label>
+            <div class="input-box"><i class="fa-solid fa-envelope"></i>
+                <input type="email" id="email" name="email" placeholder="Enter your email address" value="<?= e($_POST['email'] ?? '') ?>" required></div>
 
             <button type="submit" class="reset-button"><i class="fa-solid fa-paper-plane"></i><span>Reset Password</span></button>
         </form>
@@ -254,7 +255,7 @@ body{font-family:"Poppins",sans-serif;min-height:100vh;overflow:hidden;backgroun
 
         <div class="security-note">
             <i class="fa-solid fa-shield-halved"></i>
-            <span>Your account information is important. Please use the NIC number registered with your account.</span>
+            <span>Your account information is important. Please use the email address registered with your account.</span>
         </div>
     </div>
 
