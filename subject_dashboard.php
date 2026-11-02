@@ -77,6 +77,10 @@ section[id]{scroll-margin-top:84px}
 .sidebar-quote p strong{display:block;margin-top:1px;padding-bottom:3px;margin-bottom:-3px;font-size:12px;font-weight:800;background:linear-gradient(90deg,var(--gold-2),var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .quote-line{width:22px;height:2px;margin:7px auto 0;border-radius:3px;background:linear-gradient(90deg,var(--gold),var(--gold-2))}
 
+/* Selected topic in the sidebar: clearly highlighted */
+.nav-link.active{color:#fff;font-weight:700;background:linear-gradient(90deg,rgba(212,162,74,.30),rgba(255,255,255,.06));box-shadow:inset 0 0 0 1px rgba(212,162,74,.28)}
+.nav-link.active i{color:var(--gold-2)}
+
 /* ===== TOPBAR ===== */
 .main{flex:1;min-width:0}
 .topbar{min-height:66px;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:10px 28px;background:rgba(255,255,255,.82);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:12;backdrop-filter:blur(14px);box-shadow:0 4px 18px rgba(16,37,71,.05)}
@@ -380,13 +384,13 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
         <div class="sidebar-label">MAIN MENU</div>
 
         <nav class="sidebar-menu">
-            <a href="subject_dashboard.php" class="nav-link active"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
-            <a href="#resultsSection" class="nav-link"><i class="fa-solid fa-box-archive"></i><span>Archive Files</span></a>
-            <a href="#approvalSection" class="nav-link"><i class="fa-solid fa-hourglass-half"></i><span>Waiting for Admin</span></a>
-            <a href="#pendingSection" class="nav-link"><i class="fa-solid fa-inbox"></i><span>Files from Users</span></a>
-            <a href="#issueSection" class="nav-link"><i class="fa-solid fa-file-export"></i><span>Issue a File</span></a>
-            <a href="#loansSection" class="nav-link"><i class="fa-solid fa-clipboard-list"></i><span>Issued Files List</span></a>
-            <a href="#passwordSection" class="nav-link"><i class="fa-solid fa-key"></i><span>Change Password</span></a>
+            <a href="#dashboardTop" class="nav-link active" data-nav="dashboard" aria-current="page"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
+            <a href="#resultsSection" class="nav-link" data-nav="results"><i class="fa-solid fa-box-archive"></i><span>Archive Files</span></a>
+            <a href="#approvalSection" class="nav-link" data-nav="approval"><i class="fa-solid fa-hourglass-half"></i><span>Waiting for Admin</span></a>
+            <a href="#pendingSection" class="nav-link" data-nav="pending"><i class="fa-solid fa-inbox"></i><span>Files from Users</span></a>
+            <a href="#issueSection" class="nav-link" data-nav="issue"><i class="fa-solid fa-file-export"></i><span>Issue a File</span></a>
+            <a href="#loansSection" class="nav-link" data-nav="loans"><i class="fa-solid fa-clipboard-list"></i><span>Issued Files List</span></a>
+            <a href="#passwordSection" class="nav-link" data-nav="password"><i class="fa-solid fa-key"></i><span>Change Password</span></a>
             <a href="logout.php" class="nav-link logout-link" onclick="return confirm('Are you sure you want to logout?')"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></a>
         </nav>
 
@@ -401,7 +405,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
     </aside>
 
     <!-- MAIN -->
-    <main class="main">
+    <main class="main" id="dashboardTop">
 
         <header class="topbar">
             <div class="topbar-left">
@@ -1683,6 +1687,7 @@ function renderAll() {
     renderResults();
     renderIssueSelect(keep);
     renderLoans();
+    updateNavFromScroll();
 }
 
 /* ===== SIDEBAR ===== */
@@ -1739,6 +1744,74 @@ profileToggle.addEventListener("click", function(e) {
 });
 profilePopover.addEventListener("click", e => e.stopPropagation());
 document.addEventListener("click", closeProfilePopover);
+
+/* ===== SIDEBAR: HIGHLIGHT THE SELECTED TOPIC (follows click and scroll) ===== */
+const navLinks = document.querySelectorAll(".sidebar .nav-link[data-nav]");
+const NAV_SECTIONS = [
+    ["results",  "resultsSection"],
+    ["approval", "approvalSection"],
+    ["pending",  "pendingSection"],
+    ["issue",    "issueSection"],
+    ["loans",    "loansSection"],
+    ["password", "passwordSection"]
+];
+let navLock = false, navLockTimer;
+
+function setActiveNav(key) {
+    navLinks.forEach(link => {
+        const isActive = link.dataset.nav === key;
+        link.classList.toggle("active", isActive);
+        if (isActive) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+    });
+}
+
+/* Go to a topic: highlight it at once and scroll to it */
+function goToNav(key) {
+    setActiveNav(key);
+    navLock = true;
+    clearTimeout(navLockTimer);
+    navLockTimer = setTimeout(() => { navLock = false; updateNavFromScroll(); }, 900);
+
+    const entry = NAV_SECTIONS.find(s => s[0] === key);
+    if (entry) $(entry[1]).scrollIntoView({behavior: "smooth", block: "start"});
+    else window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+navLinks.forEach(link => {
+    link.addEventListener("click", function(e) {
+        e.preventDefault();
+        goToNav(this.dataset.nav);
+    });
+});
+
+/* Scroll: keep the highlight in step with the section on screen */
+function updateNavFromScroll() {
+    if (navLock) return;
+    const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+    let key = "dashboard";
+    NAV_SECTIONS.forEach(s => {
+        const el = $(s[1]);
+        if (el && el.getBoundingClientRect().top <= 130) key = s[0];
+    });
+    if (atBottom) key = "password";
+    setActiveNav(key);
+}
+let navTicking = false;
+window.addEventListener("scroll", function() {
+    if (navTicking) return;
+    navTicking = true;
+    requestAnimationFrame(function() { updateNavFromScroll(); navTicking = false; });
+}, {passive: true});
+
+/* "Change Password" in the profile menu: scroll there and highlight the sidebar topic */
+profilePopover.querySelectorAll('a[href="#passwordSection"]').forEach(link => {
+    link.addEventListener("click", function(e) {
+        e.preventDefault();
+        closeProfilePopover();
+        goToNav("password");
+    });
+});
 
 /* ===== PASSWORD SHOW / HIDE EYE BUTTONS ===== */
 function setPasswordVisibility(button, show) {
