@@ -1215,10 +1215,9 @@ function renderResults() {
     }).join("");
 }
 
-/* ===== FILE RECORD DOCUMENTS =====
-   Used by the View button, the row Print button and the "Print Results" button.
-   View / row Print = ONE file.  Print Results = ONE document with every searched file.
-   These documents do NOT show the File Location.
+/* ===== FILE RECORD DOCUMENT (ONE file) =====
+   Used by the View button, the row Print button and the Print button inside the viewer.
+   This document does NOT show the File Location.
    The zero page margin (@page) hides the browser's URL / page-number header and footer. */
 
 function recordCSS(preview) {
@@ -1288,9 +1287,8 @@ td[colspan="3"]{width:81%}
 `;
 }
 
-/* One full record sheet (one A4 page) for ONE file.
-   meta (optional) = {index, total, info}: used when many files are printed in one document. */
-function recordSheet(r, meta) {
+/* One full record sheet (one A4 page) for ONE file */
+function recordSheet(r) {
     const has = v => v !== undefined && v !== null && v !== "";
     const val = v => escapeHTML(has(v) ? v : "-");
 
@@ -1336,11 +1334,6 @@ function recordSheet(r, meta) {
         + stats.map(s => `<div class="stat${s[2] ? " total" : ""}"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
         + `</div></div>`;
 
-    const subtitle = meta
-        ? `<div class="subtitle">Record ${meta.index} of ${meta.total}</div>`
-          + (meta.info ? `<div class="subtitle">${escapeHTML(meta.info)}</div>` : "")
-        : `<div class="subtitle">Official record of an archived file</div>`;
-
     return `<div class="rec"><div class="sheet"><div class="page">
     <img class="wm" src="logo.webp" alt="" onerror="this.style.display='none'">
 
@@ -1354,7 +1347,7 @@ function recordSheet(r, meta) {
 
     <div class="doc-title">
         <h1>Archive File Record</h1>
-        ${subtitle}
+        <div class="subtitle">Official record of an archived file</div>
     </div>
 
     ${keybar}
@@ -1369,30 +1362,142 @@ function recordSheet(r, meta) {
 </div></div></div>`;
 }
 
-/* Wraps one or more record sheets into a complete HTML document */
-function wrapRecordDocument(title, sheets, preview) {
+/* ONE file (View button, row Print button, Print button inside the viewer) */
+function buildRecordDocument(r, preview) {
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <base href="${escapeHTML(document.baseURI)}">
-<title>${escapeHTML(title)}</title>
+<title>Archive File - ${escapeHTML(r.archive || "")}</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
 <style>${recordCSS(preview)}</style></head>
 <body>
-${sheets}
+${recordSheet(r)}
 </body></html>`;
 }
 
-/* ONE file (View button, row Print button, Print button inside the viewer) */
-function buildRecordDocument(r, preview) {
-    return wrapRecordDocument("Archive File - " + (r.archive || ""), recordSheet(r), preview);
-}
+/* ===== PRINT RESULTS DOCUMENT (landscape A4 list) =====
+   Same document as the User dashboard: letterhead, summary bar, coloured table,
+   double-line frame and watermark on every page.
+   File Location is NOT included. No footer, no sign-off lines. */
+function buildListDocument(opt) {
+    const cell = c => (c && typeof c === "object")
+        ? `<td class="${c.cls || ""}">${c.html !== undefined ? c.html : escapeHTML(c.t)}</td>`
+        : `<td>${escapeHTML(c)}</td>`;
 
-/* ALL searched files in ONE document (Print Results button): one record page per file */
-function buildResultsDocument(list, infoText) {
-    const sheets = list.map((file, i) =>
-        recordSheet(file, {index: i + 1, total: list.length, info: infoText})
-    ).join("");
-    return wrapRecordDocument("Archive Search Results", sheets, false);
+    const head = opt.columns.map(c => `<th style="width:${c.w || "auto"}">${escapeHTML(c.label)}</th>`).join("");
+    const body = opt.rows.map((r, i) => `<tr class="${r.cls || ""}">`
+        + `<td class="no">${i + 1}</td>` + r.cells.map(cell).join("") + `</tr>`).join("");
+
+    const meta = opt.meta.map(m =>
+        `<div class="m"><div class="k">${escapeHTML(m[0])}</div><div class="v">${escapeHTML(m[1])}</div></div>`).join("");
+
+    const filters = (opt.filters && opt.filters.length)
+        ? `<div class="filters"><b>Filters applied:</b> ${opt.filters.map(f => `<span>${escapeHTML(f)}</span>`).join("")}</div>`
+        : "";
+
+    return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<base href="${escapeHTML(document.baseURI)}">
+<title>${escapeHTML(opt.title)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<style>
+@page{size:A4 landscape;margin:0}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:'Plus Jakarta Sans','Noto Sans Sinhala',Arial,sans-serif;color:#14233d;font-size:10.5px;line-height:1.45;background:#fff}
+
+/* Letterhead */
+.letterhead{display:flex;align-items:center;justify-content:center;gap:18px;text-align:center;padding-bottom:10px}
+.letterhead img{height:62px;width:auto}
+.letterhead .si{font-family:'Noto Sans Sinhala','Plus Jakarta Sans',sans-serif;font-size:17px;font-weight:700;color:#0b2146;line-height:1.4}
+.letterhead .en{font-size:9.5px;font-weight:700;letter-spacing:2px;color:#44546f;margin-top:2px}
+.letterhead .sys{display:inline-block;margin-top:6px;padding:2px 14px;font-size:9.5px;font-weight:600;letter-spacing:.6px;color:#8a6420;border-top:1px solid #d4a24a;border-bottom:1px solid #d4a24a}
+.divider{display:flex;align-items:center;gap:10px;margin:4px 0 12px}
+.divider::before{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,#0b2146)}
+.divider::after{content:"";flex:1;height:1px;background:linear-gradient(270deg,transparent,#0b2146)}
+.divider i{display:block;width:6px;height:6px;background:#d4a24a;transform:rotate(45deg)}
+
+/* Title */
+.doc-title{text-align:center;margin-bottom:12px}
+h1{font-family:'Libre Baskerville',Georgia,serif;font-size:17px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#0b2146;margin:0}
+.subtitle{font-size:10px;color:#6a7890;margin-top:2px}
+
+/* Summary bar */
+.metabar{display:grid;grid-template-columns:repeat(${opt.meta.length},1fr);border:1px solid #cdd6e6;border-top:3px solid #0b2146;background:#f8f9fc;margin-bottom:10px}
+.m{padding:7px 12px;text-align:center}
+.m+.m{border-left:1px solid #cdd6e6}
+.k{font-size:8.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6a7890}
+.v{margin-top:1px;font-size:13px;font-weight:700;color:#16386a}
+.filters{margin-bottom:10px;padding:6px 10px;border-left:3px solid #d4a24a;background:#fffaf0;color:#6b5326;font-size:10px}
+.filters span{display:inline-block;margin-left:6px;padding:1px 9px;border:1px solid #e0cf9f;border-radius:10px;background:#fff;font-weight:600}
+
+/* Page wrapper: repeats top/bottom spacing on every printed page */
+table.wrap{width:100%;border-collapse:collapse}
+table.wrap>thead>tr>td,table.wrap>tfoot>tr>td,table.wrap>tbody>tr>td{padding:0;border:0;background:none}
+.sp-top{height:19mm}
+.sp-bot{height:19mm}
+.body-pad{padding:0 19mm}
+
+/* Data table */
+table.data{width:100%;border-collapse:collapse;table-layout:fixed}
+table.data thead{display:table-header-group}
+table.data tr{break-inside:avoid;page-break-inside:avoid}
+table.data th{padding:8px 8px;background:#0b2146;color:#fff;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.4px;border:1px solid #0b2146}
+table.data th:nth-child(1){width:34px;text-align:center}
+table.data td{padding:7px 8px;border:1px solid #dde4f0;vertical-align:top;overflow-wrap:anywhere;color:#26364f}
+table.data tbody tr:nth-child(even) td{background:#f7f9fd}
+table.data td.no{text-align:center;font-weight:700;color:#16386a}
+table.data td.name{font-weight:700;color:#0b2146}
+table.data td.arc{font-weight:700;color:#16386a;letter-spacing:.3px}
+table.data td.c{text-align:center}
+tr.d-Institutions td.no{box-shadow:inset 4px 0 0 #2f6fe0}
+tr.d-Councils td.no{box-shadow:inset 4px 0 0 #c98a1b}
+tr.d-Accounts td.no{box-shadow:inset 4px 0 0 #17946a}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:9px;font-weight:700;border:1px solid transparent}
+.pill.Institutions{background:#e8f0ff;color:#1f4fa8;border-color:#cfdffc}
+.pill.Councils{background:#fdf3dc;color:#8a6420;border-color:#f0dcb0}
+.pill.Accounts{background:#e3f6ee;color:#11704f;border-color:#c5ead9}
+
+/* Double-line page frame, repeated on every printed page */
+.frame{position:fixed;top:8mm;right:8mm;bottom:8mm;left:8mm;border:2px solid #0b2146;pointer-events:none}
+.frame2{position:fixed;top:calc(8mm + 8px);right:calc(8mm + 8px);bottom:calc(8mm + 8px);left:calc(8mm + 8px);border:1px solid #d4a24a;pointer-events:none}
+.wm{position:fixed;left:50%;top:50%;width:300px;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
+</style></head>
+<body>
+<div class="frame"></div>
+<div class="frame2"></div>
+<img class="wm" src="logo.webp" alt="" onerror="this.style.display='none'">
+
+<table class="wrap">
+<thead><tr><td><div class="sp-top"></div></td></tr></thead>
+<tfoot><tr><td><div class="sp-bot"></div></td></tr></tfoot>
+<tbody><tr><td><div class="body-pad">
+
+<div class="letterhead">
+    <img src="logo.webp" alt="" onerror="this.style.display='none'">
+    <div>
+        <div class="si">දකුණු පළාත් සභා ලේකම් කාර්යාලය</div>
+        <div class="en">SOUTHERN PROVINCIAL COUNCIL SECRETARIAT</div>
+        <div class="sys">Archives File Management System</div>
+    </div>
+</div>
+<div class="divider"><i></i></div>
+
+<div class="doc-title">
+    <h1>${escapeHTML(opt.title)}</h1>
+    <div class="subtitle">${escapeHTML(opt.subtitle)}</div>
+</div>
+
+<div class="metabar">${meta}</div>
+${filters}
+
+<table class="data">
+    <thead><tr><th>No.</th>${head}</tr></thead>
+    <tbody>${body}</tbody>
+</table>
+
+</div></td></tr></tbody>
+</table>
+</body></html>`;
 }
 
 /* Prints any HTML document through a hidden iframe */
@@ -1418,6 +1523,49 @@ function printHtmlDocument(html) {
     document.body.appendChild(frame);
 }
 
+/* Archive Search Results (Print Results button): landscape list, same as the User dashboard */
+function printFiles(list, filters) {
+    const depts = new Set(list.map(f => f.department)).size;
+    const pages = list.reduce((s, f) => s + (Number(f.pages) || 0), 0);
+
+    printHtmlDocument(buildListDocument({
+        title: "Archive Search Results",
+        subtitle: "Official list of archived files",
+        meta: [
+            ["Total Files", String(list.length)],
+            ["Departments", String(depts)],
+            ["Total Pages", String(pages)],
+            ["Printed On", printDate()]
+        ],
+        filters: filters,
+        columns: [
+            {label: "File Name", w: "22%"},
+            {label: "Department", w: "11%"},
+            {label: "Subject No.", w: "9%"},
+            {label: "File No.", w: "8%"},
+            {label: "Archive No.", w: "10%"},
+            {label: "Start Date", w: "9%"},
+            {label: "End Date", w: "9%"},
+            {label: "Pages", w: "6%"},
+            {label: "Added Date", w: "9%"}
+        ],
+        rows: list.map(f => ({
+            cls: "d-" + f.department,
+            cells: [
+                {t: f.name, cls: "name"},
+                {html: `<span class="pill ${escapeHTML(f.department)}">${escapeHTML(deptLabels[f.department] || f.department)}</span>`},
+                f.subject,
+                f.fileNo,
+                {t: f.archive, cls: "arc"},
+                f.start,
+                f.end,
+                {t: f.pages, cls: "c"},
+                f.date
+            ]
+        }))
+    }));
+}
+
 /* ===== VIEW: shows the document on screen ===== */
 function openView(id) {
     const r = recordById(id);
@@ -1441,17 +1589,14 @@ function printRecord(id) {
     printHtmlDocument(buildRecordDocument(r, false));
 }
 
-/* ===== PRINT RESULTS: ONE document with the full details of every searched file ===== */
+/* ===== PRINT RESULTS: professional landscape list document (same as the User dashboard) ===== */
 $("printResultsBtn").addEventListener("click", function() {
     applySearch();
     if (!filteredRecords.length) {
         alert("There are no matching files to print. Change the filters and search again.");
         return;
     }
-    const filters = currentFilters();
-    const info = "Printed on " + printDate() + " | " + filteredRecords.length + " file(s)" +
-        (filters.length ? " | Filters: " + filters.join(", ") : "");
-    printHtmlDocument(buildResultsDocument(filteredRecords, info));
+    printFiles(filteredRecords, currentFilters());
 });
 
 /* ===== ISSUE FORM ===== */
