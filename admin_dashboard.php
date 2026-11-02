@@ -367,7 +367,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 @media (max-width:1150px){.password-grid{grid-template-columns:1fr 1fr}}
 @media (max-width:700px){.password-grid{grid-template-columns:1fr;gap:13px}}
 
-/* Print */
+/* Print (Deleted Files / Deleted Users lists still use this area) */
 .print-only{display:none}
 @media print{
     body{background:#fff}
@@ -1033,7 +1033,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
     </div>
 </div>
 
-<!-- PRINT AREA (used by the list print buttons) -->
+<!-- PRINT AREA (still used by Deleted Files / Deleted Users list print buttons) -->
 <div class="print-only">
     <h2>දකුණු පළාත් සභා ලේකම් කාර්යාලය - <span id="printTitle">Archive Search Results</span></h2>
     <p id="printInfo"></p>
@@ -1581,20 +1581,198 @@ $("printDelUsers").addEventListener("click", () => {
 function printDate() {
     return new Date().toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
 }
-/* Print a LIST of files as a table (used by the "Print Results" button) */
-function printFiles(list, infoText) {
-    $("printTitle").textContent = "Archive Search Results";
-    $("printInfo").textContent = infoText;
-    $("printHead").innerHTML = "<tr><th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>File No.</th><th>Archive No.</th><th>Start Date</th><th>End Date</th><th>Pages</th></tr>";
-    $("printBody").innerHTML = list.map((f, i) => `<tr><td>${i + 1}</td><td>${escapeHTML(f.name)}</td><td>${escapeHTML(deptLabels[f.department] || f.department)}</td><td>${escapeHTML(f.subject)}</td><td>${escapeHTML(f.fileNo)}</td><td>${escapeHTML(f.archive)}</td><td>${escapeHTML(f.start)}</td><td>${escapeHTML(f.end)}</td><td>${escapeHTML(f.pages)}</td></tr>`).join("");
-    window.print();
+
+/* Builds a professional landscape A4 list document (letterhead, summary bar,
+   coloured table, sign-off lines, footer on every page) */
+function buildListDocument(opt) {
+    const cell = c => (c && typeof c === "object")
+        ? `<td class="${c.cls || ""}">${c.html !== undefined ? c.html : escapeHTML(c.t)}</td>`
+        : `<td>${escapeHTML(c)}</td>`;
+
+    const head = opt.columns.map(c => `<th style="width:${c.w || "auto"}">${escapeHTML(c.label)}</th>`).join("");
+    const body = opt.rows.map((r, i) => `<tr class="${r.cls || ""}">`
+        + `<td class="no">${i + 1}</td>` + r.cells.map(cell).join("") + `</tr>`).join("");
+
+    const meta = opt.meta.map(m =>
+        `<div class="m"><div class="k">${escapeHTML(m[0])}</div><div class="v">${escapeHTML(m[1])}</div></div>`).join("");
+
+    const filters = (opt.filters && opt.filters.length)
+        ? `<div class="filters"><b>Filters applied:</b> ${opt.filters.map(f => `<span>${escapeHTML(f)}</span>`).join("")}</div>`
+        : "";
+
+    return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<base href="${escapeHTML(document.baseURI)}">
+<title>${escapeHTML(opt.title)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<style>
+@page{size:A4 landscape;margin:0}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font-family:'Plus Jakarta Sans','Noto Sans Sinhala',Arial,sans-serif;color:#14233d;font-size:10.5px;line-height:1.45;background:#fff}
+
+/* Letterhead */
+.letterhead{display:flex;align-items:center;justify-content:center;gap:18px;text-align:center;padding-bottom:10px}
+.letterhead img{height:62px;width:auto}
+.letterhead .si{font-family:'Noto Sans Sinhala','Plus Jakarta Sans',sans-serif;font-size:17px;font-weight:700;color:#0b2146;line-height:1.4}
+.letterhead .en{font-size:9.5px;font-weight:700;letter-spacing:2px;color:#44546f;margin-top:2px}
+.letterhead .sys{display:inline-block;margin-top:6px;padding:2px 14px;font-size:9.5px;font-weight:600;letter-spacing:.6px;color:#8a6420;border-top:1px solid #d4a24a;border-bottom:1px solid #d4a24a}
+.divider{display:flex;align-items:center;gap:10px;margin:4px 0 12px}
+.divider::before{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,#0b2146)}
+.divider::after{content:"";flex:1;height:1px;background:linear-gradient(270deg,transparent,#0b2146)}
+.divider i{display:block;width:6px;height:6px;background:#d4a24a;transform:rotate(45deg)}
+
+/* Title */
+.doc-title{text-align:center;margin-bottom:12px}
+h1{font-family:'Libre Baskerville',Georgia,serif;font-size:17px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#0b2146;margin:0}
+.subtitle{font-size:10px;color:#6a7890;margin-top:2px}
+
+/* Summary bar */
+.metabar{display:grid;grid-template-columns:repeat(${opt.meta.length},1fr);border:1px solid #cdd6e6;border-top:3px solid #0b2146;background:#f8f9fc;margin-bottom:10px}
+.m{padding:7px 12px;text-align:center}
+.m+.m{border-left:1px solid #cdd6e6}
+.k{font-size:8.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6a7890}
+.v{margin-top:1px;font-size:13px;font-weight:700;color:#16386a}
+.filters{margin-bottom:10px;padding:6px 10px;border-left:3px solid #d4a24a;background:#fffaf0;color:#6b5326;font-size:10px}
+.filters span{display:inline-block;margin-left:6px;padding:1px 9px;border:1px solid #e0cf9f;border-radius:10px;background:#fff;font-weight:600}
+
+/* Page wrapper: repeats top/bottom spacing on every printed page */
+table.wrap{width:100%;border-collapse:collapse}
+table.wrap>thead>tr>td,table.wrap>tfoot>tr>td,table.wrap>tbody>tr>td{padding:0;border:0;background:none}
+.sp-top{height:19mm}
+.sp-bot{height:19mm}
+.body-pad{padding:0 19mm}
+
+/* Data table */
+table.data{width:100%;border-collapse:collapse;table-layout:fixed}
+table.data thead{display:table-header-group}
+table.data tr{break-inside:avoid;page-break-inside:avoid}
+table.data th{padding:8px 8px;background:#0b2146;color:#fff;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.4px;border:1px solid #0b2146}
+table.data th:nth-child(1){width:34px;text-align:center}
+table.data td{padding:7px 8px;border:1px solid #dde4f0;vertical-align:top;overflow-wrap:anywhere;color:#26364f}
+table.data tbody tr:nth-child(even) td{background:#f7f9fd}
+table.data td.no{text-align:center;font-weight:700;color:#16386a}
+table.data td.name{font-weight:700;color:#0b2146}
+table.data td.arc{font-weight:700;color:#16386a;letter-spacing:.3px}
+table.data td.c{text-align:center}
+tr.d-Institutions td.no{box-shadow:inset 4px 0 0 #2f6fe0}
+tr.d-Councils td.no{box-shadow:inset 4px 0 0 #c98a1b}
+tr.d-Accounts td.no{box-shadow:inset 4px 0 0 #17946a}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:9px;font-weight:700;border:1px solid transparent}
+.pill.Institutions{background:#e8f0ff;color:#1f4fa8;border-color:#cfdffc}
+.pill.Councils{background:#fdf3dc;color:#8a6420;border-color:#f0dcb0}
+.pill.Accounts{background:#e3f6ee;color:#11704f;border-color:#c5ead9}
+
+/* Double-line page frame, repeated on every printed page */
+.frame{position:fixed;top:8mm;right:8mm;bottom:8mm;left:8mm;border:2px solid #0b2146;pointer-events:none}
+.frame2{position:fixed;top:calc(8mm + 8px);right:calc(8mm + 8px);bottom:calc(8mm + 8px);left:calc(8mm + 8px);border:1px solid #d4a24a;pointer-events:none}
+.wm{position:fixed;left:50%;top:50%;width:300px;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
+</style></head>
+<body>
+<div class="frame"></div>
+<div class="frame2"></div>
+<img class="wm" src="logo.webp" alt="" onerror="this.style.display='none'">
+
+<table class="wrap">
+<thead><tr><td><div class="sp-top"></div></td></tr></thead>
+<tfoot><tr><td><div class="sp-bot"></div></td></tr></tfoot>
+<tbody><tr><td><div class="body-pad">
+
+<div class="letterhead">
+    <img src="logo.webp" alt="" onerror="this.style.display='none'">
+    <div>
+        <div class="si">දකුණු පළාත් සභා ලේකම් කාර්යාලය</div>
+        <div class="en">SOUTHERN PROVINCIAL COUNCIL SECRETARIAT</div>
+        <div class="sys">Archives File Management System</div>
+    </div>
+</div>
+<div class="divider"><i></i></div>
+
+<div class="doc-title">
+    <h1>${escapeHTML(opt.title)}</h1>
+    <div class="subtitle">${escapeHTML(opt.subtitle)}</div>
+</div>
+
+<div class="metabar">${meta}</div>
+${filters}
+
+<table class="data">
+    <thead><tr><th>No.</th>${head}</tr></thead>
+    <tbody>${body}</tbody>
+</table>
+
+</div></td></tr></tbody>
+</table>
+</body></html>`;
 }
+
+/* Print any HTML document through a hidden iframe */
+function printHtmlDocument(html) {
+    const old = document.getElementById("printFrame");
+    if (old) old.remove();
+    const frame = document.createElement("iframe");
+    frame.id = "printFrame";
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    frame.onload = function() {
+        setTimeout(function() {
+            try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+            catch (err) { toast("Could not open the print dialog: " + err.message, true); }
+        }, 500);
+    };
+    frame.srcdoc = html;
+    document.body.appendChild(frame);
+}
+
+/* Archive Search Results (Print Results button) */
+function printFiles(list, filters) {
+    const depts = new Set(list.map(f => f.department)).size;
+    const pages = list.reduce((s, f) => s + (Number(f.pages) || 0), 0);
+
+    printHtmlDocument(buildListDocument({
+        title: "Archive Search Results",
+        subtitle: "Official list of archived files",
+        printedBy: USER_NAME,
+        printedOn: printDate(),
+        meta: [
+            ["Total Files", String(list.length)],
+            ["Departments", String(depts)],
+            ["Total Pages", String(pages)],
+            ["Printed On", printDate()]
+        ],
+        filters: filters,
+        columns: [
+            {label: "File Name", w: "22%"},
+            {label: "Department", w: "11%"},
+            {label: "Subject No.", w: "9%"},
+            {label: "File No.", w: "8%"},
+            {label: "Archive No.", w: "10%"},
+            {label: "Start Date", w: "9%"},
+            {label: "End Date", w: "9%"},
+            {label: "Pages", w: "6%"},
+            {label: "Added Date", w: "9%"}
+        ],
+        rows: list.map(f => ({
+            cls: "d-" + f.department,
+            cells: [
+                {t: f.name, cls: "name"},
+                {html: `<span class="pill ${escapeHTML(f.department)}">${escapeHTML(deptLabels[f.department] || f.department)}</span>`},
+                f.subject,
+                f.fileNo,
+                {t: f.archive, cls: "arc"},
+                f.start,
+                f.end,
+                {t: f.pages, cls: "c"},
+                f.date
+            ]
+        }))
+    }));
+}
+
 $("printAll").addEventListener("click", () => {
     if (!filteredFiles.length) { toast("There are no results to print.", true); return; }
-    const info = "Printed on " + printDate() + " | " + filteredFiles.length + " file(s)" +
-        (activeFilters.length ? " | Filters: " + activeFilters.join(", ") : "");
-    printFiles(filteredFiles, info);
+    printFiles(filteredFiles, activeFilters);
 });
+
 $("printDeleted").addEventListener("click", () => {
     if (!shownDeleted.length) { toast("There are no deleted files to print.", true); return; }
     $("printTitle").textContent = "Deleted Files";
@@ -1773,26 +1951,7 @@ td[colspan="3"]{width:81%}
    Used by BOTH the row Print button and the Print button inside the viewer. */
 function printRecordDocument(file) {
     if (!file) return;
-
-    const old = document.getElementById("printFrame");
-    if (old) old.remove();
-
-    const frame = document.createElement("iframe");
-    frame.id = "printFrame";
-    frame.setAttribute("aria-hidden", "true");
-    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-    frame.onload = function() {
-        setTimeout(function() {
-            try {
-                frame.contentWindow.focus();
-                frame.contentWindow.print();
-            } catch (err) {
-                toast("Could not open the print dialog: " + err.message, true);
-            }
-        }, 400);
-    };
-    frame.srcdoc = buildRecordDocument(file, false);
-    document.body.appendChild(frame);
+    printHtmlDocument(buildRecordDocument(file, false));
 }
 
 /* ===== VIEW BUTTON: shows the file record ===== */
