@@ -2,7 +2,7 @@
 require __DIR__ . '/config.php';
 
 $errors = [];
-$f = ['full_name' => '', 'nic' => '', 'email' => '', 'designation' => '', 'subject_number' => '', 'role' => '', 'department' => '', 'username' => ''];
+$f = ['full_name' => '', 'nic' => '', 'designation' => '', 'subject_number' => '', 'role' => '', 'department' => '', 'username' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach ($f as $k => $_) $f[$k] = trim($_POST[$k] ?? '');
@@ -13,7 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_ok())                                   $errors[] = 'Security check failed. Please reload the page and try again.';
     if ($f['full_name'] === '' || mb_strlen($f['full_name']) > 150) $errors[] = 'Please enter your full name.';
     if (!preg_match('/^(\d{9}[VX]|\d{12})$/', $f['nic'])) $errors[] = 'Please enter a valid NIC number (e.g. 199012345678 or 901234567V).';
-    if (!filter_var($f['email'], FILTER_VALIDATE_EMAIL))  $errors[] = 'Please enter a valid email address.';
     if ($f['designation'] === '')                     $errors[] = 'Please enter your designation.';
     if ($f['subject_number'] === '')                  $errors[] = 'Please enter your subject number.';
     if (!in_array($f['role'], ['user', 'admin', 'subject'], true)) $errors[] = 'Please select a user type.';
@@ -23,22 +22,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($password !== $confirm)                       $errors[] = 'Password and Confirm Password do not match.';
 
     if (!$errors && !$passwordTooShort) {
-        $chk = $pdo->prepare('SELECT username, nic, email FROM users WHERE username = ? OR nic = ? OR email = ?');
-        $chk->execute([$f['username'], $f['nic'], $f['email']]);
+        $chk = $pdo->prepare('SELECT username, nic FROM users WHERE username = ? OR nic = ?');
+        $chk->execute([$f['username'], $f['nic']]);
         foreach ($chk->fetchAll() as $row) {
             if (strcasecmp($row['username'], $f['username']) === 0) $errors[] = 'This username is already taken.';
             if ($row['nic'] === $f['nic'])                           $errors[] = 'An account with this NIC number already exists.';
-            if (strcasecmp($row['email'], $f['email']) === 0)        $errors[] = 'An account with this email already exists.';
         }
         $errors = array_values(array_unique($errors));
     }
 
     if (!$errors && !$passwordTooShort) {
         $ins = $pdo->prepare(
-            'INSERT INTO users (full_name, nic, email, designation, subject_number, role, department, username, password_hash, status)
-             VALUES (?,?,?,?,?,?,?,?,?, "pending")'
+            'INSERT INTO users (full_name, nic, designation, subject_number, role, department, username, password_hash, status)
+             VALUES (?,?,?,?,?,?,?,?, "pending")'
         );
-        $ins->execute([$f['full_name'], $f['nic'], $f['email'], $f['designation'], $f['subject_number'], $f['role'],
+        $ins->execute([$f['full_name'], $f['nic'], $f['designation'], $f['subject_number'], $f['role'],
                        $f['department'], $f['username'], password_hash($password, PASSWORD_DEFAULT)]);
         header('Location: index.php?registered=1'); exit;
     }
@@ -166,7 +164,7 @@ body{width:100%;height:100vh;font-family:"Poppins",sans-serif;overflow:hidden;ba
 .card-footer-text{position:absolute;right:4.5%;bottom:16px;width:min(440px,52vw);min-width:440px;text-align:center;color:#fff;z-index:6;pointer-events:none}
 .card-footer-text p{font-size:8px;font-weight:500}
 
-/* RESPONSIVE */
+/* RESPONSIVE */ 
 /* screen eka usa adu unama podi dewal hide karanawa (scroll nowenna) */
 @media (min-width:901px) and (max-height:720px){
   .register-header p,.title-line{display:none}
@@ -249,17 +247,10 @@ body{width:100%;height:100vh;font-family:"Poppins",sans-serif;overflow:hidden;ba
                         <input type="text" id="fullName" name="full_name" value="<?= e($f['full_name']) ?>" placeholder="Enter full name" required></div>
                 </div>
 
-                <div class="two-column-row">
-                    <div class="input-group">
-                        <label for="nic">NIC Number</label>
-                        <div class="input-box"><i class="fa-solid fa-address-card"></i>
-                            <input type="text" id="nic" name="nic" value="<?= e($f['nic']) ?>" placeholder="Enter NIC number" required></div>
-                    </div>
-                    <div class="input-group">
-                        <label for="email">Email</label>
-                        <div class="input-box"><i class="fa-solid fa-envelope"></i>
-                            <input type="email" id="email" name="email" value="<?= e($f['email']) ?>" placeholder="Enter email address" required></div>
-                    </div>
+                <div class="input-group">
+                    <label for="nic">NIC Number</label>
+                    <div class="input-box"><i class="fa-solid fa-address-card"></i>
+                        <input type="text" id="nic" name="nic" value="<?= e($f['nic']) ?>" placeholder="Enter NIC number" required></div>
                 </div>
 
                 <div class="two-column-row">
