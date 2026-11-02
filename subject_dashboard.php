@@ -177,6 +177,7 @@ section[id]{scroll-margin-top:84px}
 
 /* Toolbar + count chip (label sticker) */
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.toolbar .btn{min-height:36px;padding:0 14px;font-size:var(--fs-sm)}
 .count-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;background:#fff;color:#6b5326;border:1px solid #e8d9b0;border-left:4px solid var(--gold);border-radius:6px;font-size:var(--fs-sm);font-weight:700}
 .mini-select{height:38px;display:inline-flex;align-items:center;gap:8px;padding:0 12px;background:#fff;border:1px solid #d9e1ee;border-radius:12px}
 .mini-select i{color:#7a8ca8;font-size:12px}
@@ -579,6 +580,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 
                 <div class="toolbar">
                     <span class="count-chip"><i class="fa-solid fa-folder"></i><span id="resultCount">0 files found</span></span>
+                    <button type="button" class="btn btn-outline" id="printResultsBtn"><i class="fa-solid fa-print"></i> Print Results</button>
                 </div>
 
                 <div class="table-wrapper results-scroll" id="resultsScroll">
@@ -1027,6 +1029,9 @@ function openLoan(recordId) {
 function recordById(id) {
     return records.find(r => Number(r.id) === Number(id));
 }
+function printDate() {
+    return new Date().toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
+}
 
 /* ----- File Location helpers (Rack No, Row, Section) =====
    File Location is shown ONLY in: Archive Search Results, Issued Files List, Files Sent by Users
@@ -1150,6 +1155,20 @@ function applySearch() {
     );
 }
 
+/* The filters that are filled in now (shown on the printed Print Results document) */
+function currentFilters() {
+    const list = [];
+    const name = $("searchName").value.trim();
+    const dept = $("searchDepartment").value;
+    const subject = $("searchSubject").value.trim();
+    const archive = $("searchArchive").value.trim();
+    if (name) list.push("File Name: " + name);
+    if (dept) list.push("Department: " + dept);
+    if (subject) list.push("Subject No: " + subject);
+    if (archive) list.push("Archive No: " + archive);
+    return list;
+}
+
 function renderResults() {
     applySearch();
     const total = filteredRecords.length;
@@ -1196,72 +1215,29 @@ function renderResults() {
     }).join("");
 }
 
-/* ===== FILE DOCUMENT (the same document is used for View and Print) =====
-   This document does NOT show the File Location.
-   preview = true: on-screen viewer padding; false: print layout (the zero page margin below hides the browser's URL / page-number header and footer) */
-function buildRecordDocument(r, preview) {
-    const has = v => v !== undefined && v !== null && v !== "";
-    const val = v => escapeHTML(has(v) ? v : "-");
+/* ===== FILE RECORD DOCUMENTS =====
+   Used by the View button, the row Print button and the "Print Results" button.
+   View / row Print = ONE file.  Print Results = ONE document with every searched file.
+   These documents do NOT show the File Location.
+   The zero page margin (@page) hides the browser's URL / page-number header and footer. */
 
-    // Builds a numbered section with label/value pairs, two pairs per row.
-    let sectionNo = 0;
-    const section = (title, items) => {
-        sectionNo++;
-        let rows = "";
-        for (let i = 0; i < items.length; i += 2) {
-            const a = items[i], b = items[i + 1];
-            rows += `<tr><th>${escapeHTML(a[0])}</th><td${b ? "" : ' colspan="3"'}>${val(a[1])}</td>`
-                 + (b ? `<th>${escapeHTML(b[0])}</th><td>${val(b[1])}</td>` : "")
-                 + `</tr>`;
-        }
-        return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
-    };
-
-    // Key facts bar: Archive Number always, Archive Tree Number when the record has one
-    const keys = [["Archive Number", r.archive]];
-    if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
-    const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
-        + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
-        + `</div>`;
-
-    const info = section("File Information", [
-        ["Department", deptLabels[r.department] || r.department],
-        ["Subject Number", r.subject],
-        ["File Number", r.fileNo],
-        ["Added Date", r.date],
-        ["File Start Date", r.start],
-        ["File End Date", r.end]
-    ]);
-
-    // Page details: Right/Left Side are shown only when the record has them
-    const stats = [];
-    if (has(r.right)) stats.push(["Right Side", r.right, false]);
-    if (has(r.left)) stats.push(["Left Side", r.left, false]);
-    stats.push(["Total Pages", r.pages, true]);
-    sectionNo++;
-    const pages = `<div class="sec">
-        <div class="sec-title"><span class="no">${sectionNo}</span>Page Details</div>
-        <div class="stats" style="grid-template-columns:repeat(${stats.length},1fr)">`
-        + stats.map(s => `<div class="stat${s[2] ? " total" : ""}"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
-        + `</div></div>`;
-
-    return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
-<base href="${escapeHTML(document.baseURI)}">
-<title>Archive File - ${escapeHTML(r.archive)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
-<style>
+function recordCSS(preview) {
+    return `
 @page{size:A4;margin:0}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 body{font-family:'Plus Jakarta Sans','Noto Sans Sinhala',Arial,sans-serif;color:#14233d;font-size:12.5px;line-height:1.55;margin:0;background:#fff}
-${preview ? "body{padding:26px 30px}" : "body{padding:12mm}"}
+${preview ? ".rec{padding:26px 30px}" : ".rec{padding:12mm}"}
+@media print{
+    .rec{break-after:page;page-break-after:always}
+    .rec:last-child{break-after:auto;page-break-after:auto}
+}
 
 /* Double-line page frame */
 .sheet{border:2px solid #0b2146;padding:6px}
 .page{position:relative;border:1px solid #d4a24a;padding:24px 30px 22px;overflow:hidden}
 .page>*:not(.wm){position:relative;z-index:1}
 .wm{position:absolute;left:50%;top:52%;width:320px;max-width:60%;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
-@media print{.page{min-height:265mm;display:flex;flex-direction:column}}
+@media print{.page{min-height:262mm;display:flex;flex-direction:column}}
 
 /* Letterhead */
 .letterhead{text-align:center}
@@ -1309,9 +1285,63 @@ td[colspan="3"]{width:81%}
 .stat.total{background:#0b2146;border-color:#0b2146}
 .stat.total .n{color:#fff}
 .stat.total .t{color:#f0cf8a}
-</style></head>
-<body>
-<div class="sheet"><div class="page">
+`;
+}
+
+/* One full record sheet (one A4 page) for ONE file.
+   meta (optional) = {index, total, info}: used when many files are printed in one document. */
+function recordSheet(r, meta) {
+    const has = v => v !== undefined && v !== null && v !== "";
+    const val = v => escapeHTML(has(v) ? v : "-");
+
+    // Builds a numbered section with label/value pairs, two pairs per row.
+    let sectionNo = 0;
+    const section = (title, items) => {
+        sectionNo++;
+        let rows = "";
+        for (let i = 0; i < items.length; i += 2) {
+            const a = items[i], b = items[i + 1];
+            rows += `<tr><th>${escapeHTML(a[0])}</th><td${b ? "" : ' colspan="3"'}>${val(a[1])}</td>`
+                 + (b ? `<th>${escapeHTML(b[0])}</th><td>${val(b[1])}</td>` : "")
+                 + `</tr>`;
+        }
+        return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
+    };
+
+    // Key facts bar: Archive Number always, Archive Tree Number when the record has one
+    const keys = [["Archive Number", r.archive]];
+    if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
+    const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
+        + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
+        + `</div>`;
+
+    const info = section("File Information", [
+        ["Department", deptLabels[r.department] || r.department],
+        ["Subject Number", r.subject],
+        ["File Number", r.fileNo],
+        ["Added Date", r.date],
+        ["File Start Date", r.start],
+        ["File End Date", r.end]
+    ]);
+
+    // Page details: Right/Left Side are shown only when the record has them
+    const stats = [];
+    if (has(r.right)) stats.push(["Right Side", r.right, false]);
+    if (has(r.left)) stats.push(["Left Side", r.left, false]);
+    stats.push(["Total Pages", r.pages, true]);
+    sectionNo++;
+    const pages = `<div class="sec">
+        <div class="sec-title"><span class="no">${sectionNo}</span>Page Details</div>
+        <div class="stats" style="grid-template-columns:repeat(${stats.length},1fr)">`
+        + stats.map(s => `<div class="stat${s[2] ? " total" : ""}"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
+        + `</div></div>`;
+
+    const subtitle = meta
+        ? `<div class="subtitle">Record ${meta.index} of ${meta.total}</div>`
+          + (meta.info ? `<div class="subtitle">${escapeHTML(meta.info)}</div>` : "")
+        : `<div class="subtitle">Official record of an archived file</div>`;
+
+    return `<div class="rec"><div class="sheet"><div class="page">
     <img class="wm" src="logo.webp" alt="" onerror="this.style.display='none'">
 
     <div class="letterhead">
@@ -1324,7 +1354,7 @@ td[colspan="3"]{width:81%}
 
     <div class="doc-title">
         <h1>Archive File Record</h1>
-        <div class="subtitle">Official record of an archived file</div>
+        ${subtitle}
     </div>
 
     ${keybar}
@@ -1336,8 +1366,56 @@ td[colspan="3"]{width:81%}
 
     ${info}
     ${pages}
-</div></div>
+</div></div></div>`;
+}
+
+/* Wraps one or more record sheets into a complete HTML document */
+function wrapRecordDocument(title, sheets, preview) {
+    return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<base href="${escapeHTML(document.baseURI)}">
+<title>${escapeHTML(title)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<style>${recordCSS(preview)}</style></head>
+<body>
+${sheets}
 </body></html>`;
+}
+
+/* ONE file (View button, row Print button, Print button inside the viewer) */
+function buildRecordDocument(r, preview) {
+    return wrapRecordDocument("Archive File - " + (r.archive || ""), recordSheet(r), preview);
+}
+
+/* ALL searched files in ONE document (Print Results button): one record page per file */
+function buildResultsDocument(list, infoText) {
+    const sheets = list.map((file, i) =>
+        recordSheet(file, {index: i + 1, total: list.length, info: infoText})
+    ).join("");
+    return wrapRecordDocument("Archive Search Results", sheets, false);
+}
+
+/* Prints any HTML document through a hidden iframe */
+function printHtmlDocument(html) {
+    const old = document.getElementById("printFrame");
+    if (old) old.remove();
+
+    const frame = document.createElement("iframe");
+    frame.id = "printFrame";
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    frame.onload = function() {
+        setTimeout(function() {
+            try {
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+            } catch (err) {
+                alert("Could not open the print dialog: " + err.message);
+            }
+        }, 600);
+    };
+    frame.srcdoc = html;
+    document.body.appendChild(frame);
 }
 
 /* ===== VIEW: shows the document on screen ===== */
@@ -1356,31 +1434,25 @@ $("viewPrint").addEventListener("click", function() {
     if (id) printRecord(id);
 });
 
-/* ===== PRINT: prints the same document ===== */
+/* ===== PRINT ONE FILE: prints the same document as the View button ===== */
 function printRecord(id) {
     const r = recordById(id);
     if (!r) return;
-
-    const old = document.getElementById("printFrame");
-    if (old) old.remove();
-
-    const frame = document.createElement("iframe");
-    frame.id = "printFrame";
-    frame.setAttribute("aria-hidden", "true");
-    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-    frame.onload = function() {
-        setTimeout(function() {
-            try {
-                frame.contentWindow.focus();
-                frame.contentWindow.print();
-            } catch (err) {
-                alert("Could not open the print dialog: " + err.message);
-            }
-        }, 400);
-    };
-    frame.srcdoc = buildRecordDocument(r, false);
-    document.body.appendChild(frame);
+    printHtmlDocument(buildRecordDocument(r, false));
 }
+
+/* ===== PRINT RESULTS: ONE document with the full details of every searched file ===== */
+$("printResultsBtn").addEventListener("click", function() {
+    applySearch();
+    if (!filteredRecords.length) {
+        alert("There are no matching files to print. Change the filters and search again.");
+        return;
+    }
+    const filters = currentFilters();
+    const info = "Printed on " + printDate() + " | " + filteredRecords.length + " file(s)" +
+        (filters.length ? " | Filters: " + filters.join(", ") : "");
+    printHtmlDocument(buildResultsDocument(filteredRecords, info));
+});
 
 /* ===== ISSUE FORM ===== */
 function renderIssueSelect(selectedId) {
