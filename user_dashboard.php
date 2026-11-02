@@ -933,7 +933,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                             <thead>
                                 <tr>
                                     <th>No.</th><th>File Name</th><th>Department</th><th>Subject No.</th><th>File No.</th>
-                                    <th>Archive No.</th><th>File Location</th><th>Start Date</th><th>End Date</th><th>Pages</th>
+                                    <th>Archive No.</th><th>Start Date</th><th>End Date</th><th>Pages</th>
                                 </tr>
                             </thead>
                             <tbody id="printBody"></tbody>
@@ -1081,7 +1081,6 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                                 <th>Department</th>
                                 <th>Subject Number</th>
                                 <th>File Number</th>
-                                <th>File Location</th>
                                 <th>Start Date</th>
                                 <th>End Date</th>
                                 <th>Right Side</th>
@@ -1251,7 +1250,7 @@ function deptPill(dep) {
     return `<span class="dept-pill dept-${escapeHTML(dep)}">${escapeHTML(deptLabels[dep] || dep)}</span>`;
 }
 
-/* ----- Rack Number helpers (row number + Roman numeral) ----- */
+/* ----- File Location helpers (used ONLY by the Archive Search Results table) ----- */
 function hasValue(v) { return v !== undefined && v !== null && String(v).trim() !== ""; }
 
 /* File Location parts (accepts rackNo/rackRow/rackRoman or loc_rack_no/loc_row/loc_section from api.php) */
@@ -1264,7 +1263,7 @@ function rackParts(f) {
     };
 }
 
-/* Plain text, used in print table and record document: "Rack 5, Row 3, Section II" */
+/* Plain text, used as the tooltip of the badge: "Rack 5, Row 3, Section II" */
 function rackText(f) {
     const r = rackParts(f);
     const parts = [];
@@ -1276,7 +1275,7 @@ function rackText(f) {
 
 function hasRack(f) { const r = rackParts(f); return hasValue(r.no) || hasValue(r.row) || hasValue(r.sec); }
 
-/* Badge, used in the on-screen tables */
+/* Badge, used in the Archive Search Results table */
 function rackPill(f) {
     if (!hasRack(f)) return `<span class="rack-empty">-</span>`;
     const r = rackParts(f);
@@ -1372,7 +1371,7 @@ function printDate() {
     return new Date().toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
 }
 
-/* Print a LIST of files as a table (used by the "Print Results" button) */
+/* Print a LIST of files as a table (used by the "Print Results" button). No File Location column. */
 function printFiles(list, infoText) {
     document.getElementById("printInfo").textContent = infoText;
 
@@ -1384,7 +1383,6 @@ function printFiles(list, infoText) {
             <td>${escapeHTML(file.subject)}</td>
             <td>${escapeHTML(file.fileNo)}</td>
             <td>${escapeHTML(file.archive)}</td>
-            <td>${escapeHTML(rackText(file))}</td>
             <td>${escapeHTML(file.start)}</td>
             <td>${escapeHTML(file.end)}</td>
             <td>${escapeHTML(file.pages)}</td>
@@ -1406,6 +1404,7 @@ resultsBody.addEventListener("click", function(e) {
 
 /* ===== FILE DOCUMENT (shown by the View button, printed by its Print button) ===== */
 /* preview = true: on-screen viewer padding; false: print layout */
+/* NOTE: this document does NOT show the File Location. */
 function buildRecordDocument(r, preview) {
     const has = v => v !== undefined && v !== null && v !== "";
     const val = v => escapeHTML(has(v) ? v : "-");
@@ -1424,9 +1423,9 @@ function buildRecordDocument(r, preview) {
         return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
     };
 
-    // Key facts bar: Archive Number and File Location always,
+    // Key facts bar: Archive Number always,
     // Archive Tree Number when the record has one
-    const keys = [["Archive Number", r.archive], ["File Location", rackText(r)]];
+    const keys = [["Archive Number", r.archive]];
     if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
     const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
         + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
@@ -1441,15 +1440,6 @@ function buildRecordDocument(r, preview) {
         ["File End Date", r.end]
     ];
     const info = section("File Information", infoItems);
-
-    // File Location section: Rack No, Row, Section (always shown)
-    const rp = rackParts(r);
-    sectionNo++;
-    const location = `<div class="sec">
-        <div class="sec-title"><span class="no">${sectionNo}</span>File Location</div>
-        <div class="stats" style="grid-template-columns:repeat(3,1fr)">`
-        + [["Rack No", rp.no], ["Row", rp.row], ["Section", rp.sec]].map(s => `<div class="stat"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
-        + `</div></div>`;
 
     // Page details: Right/Left Side are shown only when the record has them
     const stats = [];
@@ -1553,7 +1543,6 @@ td[colspan="3"]{width:81%}
     </div>
 
     ${info}
-    ${location}
     ${pages}
 </div></div>
 
@@ -1641,6 +1630,7 @@ const STATUS_MAP = {
     rejected:         {label: "Returned by Admin",         cls: "status-rejected"}
 };
 
+/* Files Sent to Subject Officer table: no File Location column */
 function renderSubmissions() {
     const body = document.getElementById("submittedBody");
     const empty = document.getElementById("submittedEmpty");
@@ -1657,7 +1647,6 @@ function renderSubmissions() {
             <td>${deptPill(f.department)}</td>
             <td>${escapeHTML(f.subject)}</td>
             <td>${escapeHTML(f.fileNo)}</td>
-            <td>${rackPill(f)}</td>
             <td>${escapeHTML(f.start)}</td>
             <td>${escapeHTML(f.end)}</td>
             <td>${escapeHTML(f.right ?? "-")}</td>
