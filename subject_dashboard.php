@@ -595,7 +595,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                 </div>
             </section>
 
-            <!-- SENT TO ADMIN FOR APPROVAL -->
+            <!-- SENT TO ADMIN FOR APPROVAL (no File Location column) -->
             <section class="card" id="approvalSection">
                 <div class="card-heading">
                     <div class="card-heading-left">
@@ -616,7 +616,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                         <thead>
                             <tr>
                                 <th>No.</th><th>Sent Date</th><th>File Name</th><th>Department</th><th>Subject Number</th>
-                                <th>Archive Number</th><th>Archive Tree Number</th><th>File Location</th><th>Pages</th><th>Status</th>
+                                <th>Archive Number</th><th>Archive Tree Number</th><th>Pages</th><th>Status</th>
                             </tr>
                         </thead>
                         <tbody id="waitingBody"></tbody>
@@ -727,7 +727,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                     <table id="loansTable">
                         <thead>
                             <tr>
-                                <th>No.</th><th>File Name</th><th>Archive Number</th><th>Archive Tree Number</th><th>Taken By</th><th>Date Taken</th><th>Date Returned</th><th>Status</th><th>Action</th>
+                                <th>No.</th><th>File Name</th><th>Archive Number</th><th>Archive Tree Number</th><th>File Location</th><th>Taken By</th><th>Date Taken</th><th>Date Returned</th><th>Status</th><th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="loansBody"></tbody>
@@ -1024,7 +1024,9 @@ function recordById(id) {
     return records.find(r => Number(r.id) === Number(id));
 }
 
-/* ----- File Location helpers (Rack No, Row, Section) ----- */
+/* ----- File Location helpers (Rack No, Row, Section) =====
+   File Location is shown ONLY in: Archive Search Results, Issued Files List, Files Sent by Users
+   (and it can be edited in the Review / Edit dialog). */
 function hasValue(v) { return v !== undefined && v !== null && String(v).trim() !== ""; }
 
 /* accepts rackNo/rackRow/rackRoman or loc_rack_no/loc_row/loc_section from api.php */
@@ -1037,7 +1039,7 @@ function rackParts(f) {
     };
 }
 
-/* Plain text (used in the document): "Rack 5, Row 3, Section II" */
+/* Plain text, used as the tooltip of the badge: "Rack 5, Row 3, Section II" */
 function rackText(f) {
     const r = rackParts(f);
     const parts = [];
@@ -1055,6 +1057,13 @@ function rackPill(f) {
     const row = hasValue(r.row) ? `<b>Row ${escapeHTML(String(r.row).trim())}</b>` : "";
     const sec = hasValue(r.sec) ? `<i>Section ${escapeHTML(String(r.sec).trim())}</i>` : "";
     return `<span class="rack-pill" title="${escapeHTML(rackText(f))}">${rack}${row}${sec}</span>`;
+}
+
+/* Issued Files List: use the location on the loan row if the API sends it, otherwise the location of the archive file */
+function loanLocation(l) {
+    const own = rackParts(l);
+    if (hasValue(own.no) || hasValue(own.row) || hasValue(own.sec)) return l;
+    return recordById(l.fileId) || l;
 }
 
 let flashTimer;
@@ -1076,7 +1085,7 @@ function renderStats() {
     $("totalDepartments").textContent = new Set(records.map(r => r.department)).size;
 }
 
-/* ===== FILES SENT BY USERS ===== */
+/* ===== FILES SENT BY USERS (keeps File Location) ===== */
 function renderPending() {
     $("pendingBody").innerHTML = pending.map((f, i) => `
         <tr class="dept-row-${escapeHTML(f.department)}">
@@ -1100,7 +1109,7 @@ function renderPending() {
     $("pendingTable").style.display = pending.length ? "table" : "none";
 }
 
-/* ===== WAITING FOR ADMIN APPROVAL ===== */
+/* ===== WAITING FOR ADMIN APPROVAL (no File Location column) ===== */
 function renderWaiting() {
     const list = waiting;
 
@@ -1113,7 +1122,6 @@ function renderWaiting() {
             <td>${escapeHTML(f.subject)}</td>
             <td class="strong-cell">${escapeHTML(f.archive)}</td>
             <td>${escapeHTML(f.rack)}</td>
-            <td>${rackPill(f)}</td>
             <td>${escapeHTML(f.pages)}</td>
             <td><span class="badge badge-out"><i class="fa-regular fa-clock"></i> Waiting for Admin</span></td>
         </tr>`).join("");
@@ -1123,7 +1131,7 @@ function renderWaiting() {
     $("waitingTable").style.display = list.length ? "table" : "none";
 }
 
-/* ===== ARCHIVE RESULTS ===== */
+/* ===== ARCHIVE RESULTS (keeps File Location) ===== */
 function applySearch() {
     const name = $("searchName").value.trim().toLowerCase();
     const dept = $("searchDepartment").value;
@@ -1184,8 +1192,9 @@ function renderResults() {
     }).join("");
 }
 
-/* ===== FILE DOCUMENT (the same document is used for View and Print) ===== */
-/* preview = true: on-screen viewer padding; false: print layout (the zero page margin below hides the browser's URL / page-number header and footer) */
+/* ===== FILE DOCUMENT (the same document is used for View and Print) =====
+   This document does NOT show the File Location.
+   preview = true: on-screen viewer padding; false: print layout (the zero page margin below hides the browser's URL / page-number header and footer) */
 function buildRecordDocument(r, preview) {
     const has = v => v !== undefined && v !== null && v !== "";
     const val = v => escapeHTML(has(v) ? v : "-");
@@ -1204,8 +1213,8 @@ function buildRecordDocument(r, preview) {
         return `<div class="sec"><div class="sec-title"><span class="no">${sectionNo}</span>${escapeHTML(title)}</div><table>${rows}</table></div>`;
     };
 
-    // Key facts bar: Archive Number and File Location always, Archive Tree Number when the record has one
-    const keys = [["Archive Number", r.archive], ["File Location", rackText(r)]];
+    // Key facts bar: Archive Number always, Archive Tree Number when the record has one
+    const keys = [["Archive Number", r.archive]];
     if (has(r.rack)) keys.push(["Archive Tree Number", r.rack]);
     const keybar = `<div class="keybar" style="grid-template-columns:repeat(${keys.length},1fr)">`
         + keys.map(k => `<div><div class="k-lbl">${escapeHTML(k[0])}</div><div class="k-val">${val(k[1])}</div></div>`).join("")
@@ -1219,15 +1228,6 @@ function buildRecordDocument(r, preview) {
         ["File Start Date", r.start],
         ["File End Date", r.end]
     ]);
-
-    // File Location section: Rack No, Row, Section (always shown)
-    const rp = rackParts(r);
-    sectionNo++;
-    const location = `<div class="sec">
-        <div class="sec-title"><span class="no">${sectionNo}</span>File Location</div>
-        <div class="stats" style="grid-template-columns:repeat(3,1fr)">`
-        + [["Rack No", rp.no], ["Row", rp.row], ["Section", rp.sec]].map(s => `<div class="stat"><div class="n">${val(s[1])}</div><div class="t">${escapeHTML(s[0])}</div></div>`).join("")
-        + `</div></div>`;
 
     // Page details: Right/Left Side are shown only when the record has them
     const stats = [];
@@ -1331,7 +1331,6 @@ td[colspan="3"]{width:81%}
     </div>
 
     ${info}
-    ${location}
     ${pages}
 </div></div>
 </body></html>`;
@@ -1425,7 +1424,7 @@ $("issueForm").addEventListener("reset", function() {
     setTimeout(() => { $("takenDate").value = localToday; }, 0);
 });
 
-/* ===== ISSUED FILES LIST ===== */
+/* ===== ISSUED FILES LIST (keeps File Location) ===== */
 function renderLoans() {
     const filter = $("loanFilter").value;
     const list = loans.filter(l => !filter || (filter === "out" ? !l.returnedDate : !!l.returnedDate));
@@ -1438,6 +1437,7 @@ function renderLoans() {
             <td>${fileCell(l.name)}</td>
             <td class="strong-cell">${escapeHTML(l.archive)}</td>
             <td>${escapeHTML(l.rack)}</td>
+            <td>${rackPill(loanLocation(l))}</td>
             <td>${escapeHTML(l.takenBy)}</td>
             <td>${escapeHTML(l.takenDate)}</td>
             <td>${done ? escapeHTML(l.returnedDate) : "-"}</td>
