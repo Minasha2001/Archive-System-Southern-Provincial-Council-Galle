@@ -15,7 +15,7 @@
  *   loc_section  -> rackRoman  (Section: I | II | III)
  * "rack" (archive_no's Archive Tree Number, rack_no column) is a different field set by the Subject Officer.
  *
- * NOTE: when a user submits a file, every field is optional (at least one must be filled).
+ * NOTE: when a user submits a file, every field is optional.
  * The Subject Officer must complete all details before sending the file for approval.
  */
 require_once __DIR__ . '/config.php';
@@ -223,7 +223,7 @@ if (!is_array($in)) $in = [];
 
 /* =====================================================================
    USER: submit / delete own submission
-   Every field is OPTIONAL, but at least one must be filled.
+   Every field is OPTIONAL (the form can be saved even when all fields are empty).
    ===================================================================== */
 if ($action === 'submit_file') {
     if ($role !== 'user') fail('Not allowed.', 403);
@@ -241,13 +241,6 @@ if ($action === 'submit_file') {
     $right     = str_or_null($in['right'] ?? null);
     $left      = str_or_null($in['left'] ?? null);
     $pages     = str_or_null($in['pages'] ?? null);
-
-    // At least one field must be filled (Submission Date alone does not count)
-    $filled = array_filter(
-        [$name, $dept, $subject, $fileNo, $start, $end, $rackNo, $rackRow, $rackRoman, $right, $left, $pages],
-        fn($v) => $v !== null
-    );
-    if (count($filled) === 0) fail('Please fill at least one field before saving.');
 
     // Validate only the values that were entered
     if ($dept !== null && !isset(DEPT_DB[$dept])) fail('Select a valid department.');

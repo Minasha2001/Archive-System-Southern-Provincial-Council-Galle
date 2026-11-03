@@ -933,7 +933,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                         <div class="section-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
                         <div>
                             <h2>Submit a File to Archive</h2>
-                            <p>Enter the details of the file you want to submit. All fields are optional, but fill at least one.</p>
+                            <p>Enter the details of the file you want to submit. All fields are optional.</p>
                         </div>
                     </div>
                 </div>
@@ -943,7 +943,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                     <span>File saved successfully and sent to the Subject Officer for review.</span>
                 </div>
 
-                <form id="submitForm">
+                <form id="submitForm" novalidate>
                     <div class="submit-grid">
                         <div class="field">
                             <label for="submissionDate">Submission Date</label>
@@ -1031,7 +1031,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 
                     <div class="submit-note">
                         <i class="fa-solid fa-circle-info"></i>
-                        <span>All fields are optional, but fill at least one. After you save, the file details are sent to the Subject Officer for review. It appears in the search results once the Subject Officer adds it to the archive.</span>
+                        <span>All fields are optional. After you save, the file details are sent to the Subject Officer for review. It appears in the search results once the Subject Officer adds it to the archive.</span>
                     </div>
 
                     <div class="submit-bottom">
@@ -1828,7 +1828,7 @@ document.getElementById("submittedBody").addEventListener("click", async functio
     }
 });
 
-/* ===== SUBMIT A FILE: every field is optional, but at least one must be filled ===== */
+/* ===== SUBMIT A FILE: every field is optional ===== */
 document.getElementById("submitForm").addEventListener("submit", async function(e) {
     e.preventDefault();
 
@@ -1848,11 +1848,6 @@ document.getElementById("submitForm").addEventListener("submit", async function(
     const frontRaw = val("frontPage");
     const backRaw = val("backPage");
     const totalRaw = val("totalPages");
-
-    // Submission Date is pre-filled with today's date, so it is not counted as "filled"
-    const anyFilled = [name, subject, department, fileNo, startDate, endDate,
-                       rackNo, rackRow, rackRoman, frontRaw, backRaw, totalRaw].some(v => v !== "");
-    if (!anyFilled) { alert("Please fill at least one field before saving."); return; }
 
     // Validate only the values that were entered
     if (startDate && endDate && endDate < startDate) { alert("File End Date must be on or after File Start Date."); return; }
