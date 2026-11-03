@@ -933,7 +933,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                         <div class="section-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
                         <div>
                             <h2>Submit a File to Archive</h2>
-                            <p>Enter the details of the file you want to submit.</p>
+                            <p>Enter the details of the file you want to submit. All fields are optional, but fill at least one.</p>
                         </div>
                     </div>
                 </div>
@@ -947,19 +947,19 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                     <div class="submit-grid">
                         <div class="field">
                             <label for="submissionDate">Submission Date</label>
-                            <div class="input-wrap"><i class="fa-regular fa-calendar"></i><input type="date" id="submissionDate" required></div>
+                            <div class="input-wrap"><i class="fa-regular fa-calendar"></i><input type="date" id="submissionDate"></div>
                         </div>
 
                         <div class="field">
                             <label for="subjectNumber">Subject Number</label>
-                            <div class="input-wrap"><i class="fa-solid fa-hashtag"></i><input type="text" id="subjectNumber" placeholder="e.g. SUB-101" required></div>
+                            <div class="input-wrap"><i class="fa-solid fa-hashtag"></i><input type="text" id="subjectNumber" placeholder="e.g. SUB-101"></div>
                         </div>
 
                         <div class="field">
                             <label for="submitDepartment">Department</label>
                             <div class="input-wrap">
                                 <i class="fa-solid fa-building-columns"></i>
-                                <select id="submitDepartment" required>
+                                <select id="submitDepartment">
                                     <option value="">Select Department</option>
                                     <option value="Institutions">ආයතන(Institutions)</option>
                                     <option value="Councils">සභා(Councils)</option>
@@ -970,22 +970,22 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 
                         <div class="field">
                             <label for="fileNumber">File Number</label>
-                            <div class="input-wrap"><i class="fa-regular fa-file"></i><input type="text" id="fileNumber" placeholder="Enter file number..." required></div>
+                            <div class="input-wrap"><i class="fa-regular fa-file"></i><input type="text" id="fileNumber" placeholder="Enter file number..."></div>
                         </div>
 
                         <div class="field">
                             <label for="newFileName">File Name</label>
-                            <div class="input-wrap"><i class="fa-regular fa-file-lines"></i><input type="text" id="newFileName" placeholder="Enter file name..." required></div>
+                            <div class="input-wrap"><i class="fa-regular fa-file-lines"></i><input type="text" id="newFileName" placeholder="Enter file name..."></div>
                         </div>
 
                         <div class="field">
                             <label for="startDate">File Start Date</label>
-                            <div class="input-wrap"><i class="fa-regular fa-calendar-days"></i><input type="date" id="startDate" required></div>
+                            <div class="input-wrap"><i class="fa-regular fa-calendar-days"></i><input type="date" id="startDate"></div>
                         </div>
 
                         <div class="field">
                             <label for="endDate">File End Date</label>
-                            <div class="input-wrap"><i class="fa-regular fa-calendar-check"></i><input type="date" id="endDate" required></div>
+                            <div class="input-wrap"><i class="fa-regular fa-calendar-check"></i><input type="date" id="endDate"></div>
                         </div>
 
                         <!-- File Location: rack no + row typed inside one field, plus section drop box -->
@@ -993,9 +993,9 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                             <label for="rackNo">File Location</label>
                             <div class="input-wrap rack-wrap">
                                 <i class="fa-solid fa-table-cells-large"></i>
-                                <input type="text" id="rackNo" maxlength="20" placeholder="Rack No" aria-label="Rack number" autocomplete="off" required>
-                                <input type="text" id="rackRow" maxlength="20" placeholder="Row" aria-label="Row number" autocomplete="off" required>
-                                <select id="rackRoman" aria-label="Section (Roman numeral)" required>
+                                <input type="text" id="rackNo" maxlength="20" placeholder="Rack No" aria-label="Rack number" autocomplete="off">
+                                <input type="text" id="rackRow" maxlength="20" placeholder="Row" aria-label="Row number" autocomplete="off">
+                                <select id="rackRoman" aria-label="Section (Roman numeral)">
                                     <option value="">Section</option>
                                     <option value="I">I</option>
                                     <option value="II">II</option>
@@ -1010,19 +1010,19 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
                             <div class="page-numbers-grid">
                                 <div class="field">
                                     <label for="frontPage">Right Side</label>
-                                    <div class="input-wrap"><i class="fa-solid fa-arrow-right-long"></i><input type="number" id="frontPage" min="0" step="1" placeholder="Pages on right side (e.g. 60)" required></div>
+                                    <div class="input-wrap"><i class="fa-solid fa-arrow-right-long"></i><input type="number" id="frontPage" min="0" step="1" placeholder="Pages on right side (e.g. 60)"></div>
                                     <small class="hint">Number of pages on the right side</small>
                                 </div>
 
                                 <div class="field">
                                     <label for="backPage">Left Side</label>
-                                    <div class="input-wrap"><i class="fa-solid fa-arrow-left-long"></i><input type="number" id="backPage" min="0" step="1" placeholder="Pages on left side (e.g. 40)" required></div>
+                                    <div class="input-wrap"><i class="fa-solid fa-arrow-left-long"></i><input type="number" id="backPage" min="0" step="1" placeholder="Pages on left side (e.g. 40)"></div>
                                     <small class="hint">Number of pages on the left side</small>
                                 </div>
 
                                 <div class="field">
                                     <label for="totalPages">Total Pages</label>
-                                    <div class="input-wrap"><i class="fa-solid fa-copy"></i><input type="number" id="totalPages" min="1" step="1" placeholder="Enter total pages (e.g. 100)" required></div>
+                                    <div class="input-wrap"><i class="fa-solid fa-copy"></i><input type="number" id="totalPages" min="1" step="1" placeholder="Enter total pages (e.g. 100)"></div>
                                     <small class="hint">Total number of pages in the file</small>
                                 </div>
                             </div>
@@ -1031,7 +1031,7 @@ tbody tr[class*="dept-row-"]:hover td:first-child{box-shadow:inset 7px 0 0 var(-
 
                     <div class="submit-note">
                         <i class="fa-solid fa-circle-info"></i>
-                        <span>After you save, the file details are sent to the Subject Officer for review. It appears in the search results once the Subject Officer adds it to the archive.</span>
+                        <span>All fields are optional, but fill at least one. After you save, the file details are sent to the Subject Officer for review. It appears in the search results once the Subject Officer adds it to the archive.</span>
                     </div>
 
                     <div class="submit-bottom">
@@ -1285,10 +1285,10 @@ document.getElementById("searchForm").addEventListener("submit", function(e) {
     if (archive) activeFilters.push("Archive No: " + document.getElementById("searchArchive").value.trim());
 
     filteredFiles = archiveFiles.filter(file =>
-        (!name || file.name.toLowerCase().includes(name)) &&
+        (!name || String(file.name ?? "").toLowerCase().includes(name)) &&
         (!department || file.department === department) &&
-        (!subject || file.subject.toLowerCase().includes(subject)) &&
-        (!archive || file.archive.toLowerCase().includes(archive))
+        (!subject || String(file.subject ?? "").toLowerCase().includes(subject)) &&
+        (!archive || String(file.archive ?? "").toLowerCase().includes(archive))
     );
 
     renderResults();
@@ -1313,7 +1313,7 @@ function renderResults() {
     document.getElementById("matchingFiles").textContent = total;
     document.getElementById("totalFiles").textContent = archiveFiles.length;
     document.getElementById("totalDepartments").textContent =
-        new Set(archiveFiles.map(file => file.department)).size;
+        new Set(archiveFiles.map(file => file.department).filter(Boolean)).size;
 
     resultsBody.innerHTML = "";
 
@@ -1670,7 +1670,7 @@ function printHtmlDocument(html) {
 
 /* Archive Search Results (Print Results button) */
 function printFiles(list, filters) {
-    const depts = new Set(list.map(f => f.department)).size;
+    const depts = new Set(list.map(f => f.department).filter(Boolean)).size;
     const pages = list.reduce((s, f) => s + (Number(f.pages) || 0), 0);
 
     printHtmlDocument(buildListDocument({
@@ -1770,34 +1770,37 @@ const STATUS_MAP = {
     rejected:         {label: "Returned by Admin",         cls: "status-rejected"}
 };
 
-/* Files Sent to Subject Officer table: no File Location column */
+/* Files Sent to Subject Officer table: no File Location column.
+   Empty (optional) values are shown as "-". */
 function renderSubmissions() {
     const body = document.getElementById("submittedBody");
     const empty = document.getElementById("submittedEmpty");
     const table = document.getElementById("submittedTable");
+    const dash = v => hasValue(v) ? escapeHTML(v) : "-";
 
     body.innerHTML = submissions.map((f, i) => {
         const st = STATUS_MAP[f.status] || {label: f.status, cls: "status-pending"};
         const canDelete = f.status === "pending" || f.status === "rejected";
+        const label = hasValue(f.name) ? f.name : "this file";
         return `
-        <tr class="dept-row-${escapeHTML(f.department)}">
+        <tr class="dept-row-${escapeHTML(f.department || "")}">
             <td>${i + 1}</td>
-            <td>${escapeHTML(f.submissionDate)}</td>
-            <td><div class="file-name"><i class="fa-solid fa-file-lines file-icon doc"></i><span>${escapeHTML(f.name)}</span></div></td>
-            <td>${deptPill(f.department)}</td>
-            <td>${escapeHTML(f.subject)}</td>
-            <td>${escapeHTML(f.fileNo)}</td>
-            <td>${escapeHTML(f.start)}</td>
-            <td>${escapeHTML(f.end)}</td>
-            <td>${escapeHTML(f.right ?? "-")}</td>
-            <td>${escapeHTML(f.left ?? "-")}</td>
-            <td>${escapeHTML(f.pages ?? "-")}</td>
+            <td>${dash(f.submissionDate)}</td>
+            <td><div class="file-name"><i class="fa-solid fa-file-lines file-icon doc"></i><span>${dash(f.name)}</span></div></td>
+            <td>${hasValue(f.department) ? deptPill(f.department) : "-"}</td>
+            <td>${dash(f.subject)}</td>
+            <td>${dash(f.fileNo)}</td>
+            <td>${dash(f.start)}</td>
+            <td>${dash(f.end)}</td>
+            <td>${dash(f.right)}</td>
+            <td>${dash(f.left)}</td>
+            <td>${dash(f.pages)}</td>
             <td>
                 <span class="status-badge ${st.cls}"><i class="fa-solid fa-circle-dot"></i> ${escapeHTML(st.label)}</span>
                 ${f.status === "rejected" && f.rejectReason ? `<span class="status-note">Reason: ${escapeHTML(f.rejectReason)}</span>` : ""}
             </td>
             <td>${canDelete
-                ? `<button type="button" class="row-delete-btn" data-del="${f.id}" aria-label="Delete ${escapeHTML(f.name)}"><i class="fa-solid fa-trash-can"></i> Delete</button>`
+                ? `<button type="button" class="row-delete-btn" data-del="${f.id}" aria-label="Delete ${escapeHTML(label)}"><i class="fa-solid fa-trash-can"></i> Delete</button>`
                 : `<span style="color:var(--muted);font-size:10px">—</span>`}</td>
         </tr>`;
     }).join("");
@@ -1812,7 +1815,8 @@ document.getElementById("submittedBody").addEventListener("click", async functio
 
     const item = submissions.find(f => String(f.id) === btn.dataset.del);
     if (!item) return;
-    if (!confirm('Delete "' + item.name + '" and its details? This cannot be undone.')) return;
+    const itemLabel = hasValue(item.name) ? item.name : "this file";
+    if (!confirm('Delete "' + itemLabel + '" and its details? This cannot be undone.')) return;
 
     btn.disabled = true;
     try {
@@ -1824,39 +1828,56 @@ document.getElementById("submittedBody").addEventListener("click", async functio
     }
 });
 
+/* ===== SUBMIT A FILE: every field is optional, but at least one must be filled ===== */
 document.getElementById("submitForm").addEventListener("submit", async function(e) {
     e.preventDefault();
 
     const button = this.querySelector(".submit-main-btn");
-    const startDate = document.getElementById("startDate").value;
-    const endDate = document.getElementById("endDate").value;
-    const submitDate = document.getElementById("submissionDate").value;
-    const rackNo = document.getElementById("rackNo").value.trim();
-    const rackRow = document.getElementById("rackRow").value.trim();
-    const rackRoman = document.getElementById("rackRoman").value;
-    const frontPage = Number(document.getElementById("frontPage").value);
-    const backPage = Number(document.getElementById("backPage").value);
-    const totalPages = Number(document.getElementById("totalPages").value);
+    const val = id => document.getElementById(id).value.trim();
 
-    if (endDate < startDate) { alert("File End Date must be on or after File Start Date."); return; }
-    if (submitDate < endDate) { alert("Submission Date cannot be earlier than the File End Date."); return; }
-    if (!rackNo) { alert("Please enter the Rack No."); return; }
-    if (!rackRow) { alert("Please enter the Row."); return; }
-    if (!ROMAN_OPTIONS.includes(rackRoman)) { alert("Please choose the Section (I, II or III)."); return; }
-    if (!Number.isInteger(frontPage) || frontPage < 0) { alert("Please enter a valid number of pages for the Right Side (0 or more)."); return; }
-    if (!Number.isInteger(backPage) || backPage < 0) { alert("Please enter a valid number of pages for the Left Side (0 or more)."); return; }
-    if (!Number.isInteger(totalPages) || totalPages < 1) { alert("Please enter a valid Total Pages number (1 or more)."); return; }
+    const name = val("newFileName");
+    const subject = val("subjectNumber");
+    const department = val("submitDepartment");
+    const fileNo = val("fileNumber");
+    const startDate = val("startDate");
+    const endDate = val("endDate");
+    const submitDate = val("submissionDate");
+    const rackNo = val("rackNo");
+    const rackRow = val("rackRow");
+    const rackRoman = val("rackRoman");
+    const frontRaw = val("frontPage");
+    const backRaw = val("backPage");
+    const totalRaw = val("totalPages");
+
+    // Submission Date is pre-filled with today's date, so it is not counted as "filled"
+    const anyFilled = [name, subject, department, fileNo, startDate, endDate,
+                       rackNo, rackRow, rackRoman, frontRaw, backRaw, totalRaw].some(v => v !== "");
+    if (!anyFilled) { alert("Please fill at least one field before saving."); return; }
+
+    // Validate only the values that were entered
+    if (startDate && endDate && endDate < startDate) { alert("File End Date must be on or after File Start Date."); return; }
+    if (endDate && submitDate && submitDate < endDate) { alert("Submission Date cannot be earlier than the File End Date."); return; }
+    if (rackRoman && !ROMAN_OPTIONS.includes(rackRoman)) { alert("Please choose a valid Section (I, II or III)."); return; }
+
+    const toNum = raw => raw === "" ? null : Number(raw);
+    const frontPage = toNum(frontRaw);
+    const backPage = toNum(backRaw);
+    const totalPages = toNum(totalRaw);
+
+    if (frontPage !== null && (!Number.isInteger(frontPage) || frontPage < 0)) { alert("Please enter a valid number of pages for the Right Side (0 or more)."); return; }
+    if (backPage !== null && (!Number.isInteger(backPage) || backPage < 0)) { alert("Please enter a valid number of pages for the Left Side (0 or more)."); return; }
+    if (totalPages !== null && (!Number.isInteger(totalPages) || totalPages < 1)) { alert("Please enter a valid Total Pages number (1 or more)."); return; }
 
     button.disabled = true;
     try {
         await api("submit_file", {
-            name: document.getElementById("newFileName").value.trim(),
-            subject: document.getElementById("subjectNumber").value.trim(),
-            department: document.getElementById("submitDepartment").value,
-            fileNo: document.getElementById("fileNumber").value.trim(),
-            start: startDate,
-            end: endDate,
-            submitDate: submitDate,
+            name: name,
+            subject: subject,
+            department: department,
+            fileNo: fileNo,
+            start: startDate || null,
+            end: endDate || null,
+            submitDate: submitDate || null,
             rackNo: rackNo,
             rackRow: rackRow,
             rackRoman: rackRoman,

@@ -14,6 +14,9 @@
  *   loc_row      -> rackRow    (Row)
  *   loc_section  -> rackRoman  (Section: I | II | III)
  * "rack" (archive_no's Archive Tree Number, rack_no column) is a different field set by the Subject Officer.
+ *
+ * NOTE: when a user submits a file, every field is optional (at least one must be filled).
+ * The Subject Officer must complete all details before sending the file for approval.
  */
 require_once __DIR__ . '/config.php';
 
@@ -57,7 +60,7 @@ const LOC_SECTIONS = ['I', 'II', 'III'];
 function dept_ui(string $dep): string { return DEPT_UI[$dep] ?? $dep; }
 
 function map_file(array $r): array {
-    $r['department'] = dept_ui((string)$r['department']);
+    $r['department'] = dept_ui((string)($r['department'] ?? ''));
     foreach (['id', 'pages', 'right', 'left'] as $k) {
         if (array_key_exists($k, $r) && $r[$k] !== null) $r[$k] = (int)$r[$k];
     }
@@ -85,6 +88,12 @@ function valid_date_str($d): bool {
     return is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && strtotime($d) !== false;
 }
 
+/* "" or null -> null, otherwise the trimmed string */
+function str_or_null($v): ?string {
+    $v = trim((string)($v ?? ''));
+    return $v === '' ? null : $v;
+}
+
 function open_loan_ids(PDO $pdo): array {
     return $pdo->query('SELECT file_id FROM file_issues WHERE returned_date IS NULL')
                ->fetchAll(PDO::FETCH_COLUMN);
@@ -108,7 +117,7 @@ if ($action === 'state') {
             'name'       => $user['full_name'],
             'username'   => $user['username'],
             'role'       => $role,
-            'department' => dept_ui($user['department']),
+            'department' => dept_ui((string)$user['department']),
         ],
         'files' => $files,
     ];
@@ -214,40 +223,56 @@ if (!is_array($in)) $in = [];
 
 /* =====================================================================
    USER: submit / delete own submission
+   Every field is OPTIONAL, but at least one must be filled.
    ===================================================================== */
 if ($action === 'submit_file') {
     if ($role !== 'user') fail('Not allowed.', 403);
 
-    $name      = trim((string)($in['name'] ?? ''));
-    $dept      = (string)($in['department'] ?? '');
-    $subject   = trim((string)($in['subject'] ?? ''));
-    $fileNo    = trim((string)($in['fileNo'] ?? ''));
-    $start     = (string)($in['start'] ?? '');
-    $end       = (string)($in['end'] ?? '');
-    $submit    = (string)($in['submitDate'] ?? '');
-    $rackNo    = trim((string)($in['rackNo'] ?? ''));
-    $rackRow   = trim((string)($in['rackRow'] ?? ''));
-    $rackRoman = trim((string)($in['rackRoman'] ?? ''));
-    $right     = $in['right'] ?? null;
-    $left      = $in['left'] ?? null;
-    $pages     = $in['pages'] ?? null;
+    $name      = str_or_null($in['name'] ?? null);
+    $dept      = str_or_null($in['department'] ?? null);
+    $subject   = str_or_null($in['subject'] ?? null);
+    $fileNo    = str_or_null($in['fileNo'] ?? null);
+    $start     = str_or_null($in['start'] ?? null);
+    $end       = str_or_null($in['end'] ?? null);
+    $submit    = str_or_null($in['submitDate'] ?? null);
+    $rackNo    = str_or_null($in['rackNo'] ?? null);
+    $rackRow   = str_or_null($in['rackRow'] ?? null);
+    $rackRoman = str_or_null($in['rackRoman'] ?? null);
+    $right     = str_or_null($in['right'] ?? null);
+    $left      = str_or_null($in['left'] ?? null);
+    $pages     = str_or_null($in['pages'] ?? null);
 
-    if ($name === '') fail('Enter the file name.');
-    if ($subject === '') fail('Enter the subject number.');
-    if ($fileNo === '') fail('Enter the file number.');
-    if (!isset(DEPT_DB[$dept])) fail('Select a valid department.');
-    if (!valid_date_str($start) || !valid_date_str($end)) fail('Enter a valid file start date and end date.');
-    if ($end < $start) fail('File End Date must be on or after File Start Date.');
+    // At least one field must be filled (Submission Date alone does not count)
+    $filled = array_filter(
+        [$name, $dept, $subject, $fileNo, $start, $end, $rackNo, $rackRow, $rackRoman, $right, $left, $pages],
+        fn($v) => $v !== null
+    );
+    if (count($filled) === 0) fail('Please fill at least one field before saving.');
+
+    // Validate only the values that were entered
+    if ($dept !== null && !isset(DEPT_DB[$dept])) fail('Select a valid department.');
+    if ($start !== null && !valid_date_str($start)) fail('Enter a valid file start date.');
+    if ($end !== null && !valid_date_str($end)) fail('Enter a valid file end date.');
+    if ($start !== null && $end !== null && $end < $start) fail('File End Date must be on or after File Start Date.');
+
+    // Submission date: default to today when it is missing
+    if ($submit === null) $submit = date('Y-m-d');
     if (!valid_date_str($submit)) fail('Enter a valid submission date.');
-    if ($submit < $end) fail('Submission Date cannot be earlier than the File End Date.');
-    if ($rackNo === '' || mb_strlen($rackNo) > 20) fail('Enter a valid Rack No (up to 20 characters).');
-    if ($rackRow === '' || mb_strlen($rackRow) > 20) fail('Enter a valid Row (up to 20 characters).');
-    if (!in_array($rackRoman, LOC_SECTIONS, true)) fail('Select the Section (I, II or III).');
-    if (!is_numeric($right) || (int)$right < 0) fail('Enter a valid Right Side page count.');
-    if (!is_numeric($left) || (int)$left < 0) fail('Enter a valid Left Side page count.');
-    if (!is_numeric($pages) || (int)$pages < 1) fail('Enter a valid Total Pages number.');
+    if ($end !== null && $submit < $end) fail('Submission Date cannot be earlier than the File End Date.');
 
-    $depDb = DEPT_DB[$dept];
+    if ($rackNo !== null && mb_strlen($rackNo) > 20) fail('Rack No can be up to 20 characters.');
+    if ($rackRow !== null && mb_strlen($rackRow) > 20) fail('Row can be up to 20 characters.');
+    if ($rackRoman !== null && !in_array($rackRoman, LOC_SECTIONS, true)) fail('Select a valid Section (I, II or III).');
+
+    if ($right !== null && (!ctype_digit($right))) fail('Enter a valid Right Side page count (0 or more).');
+    if ($left !== null && (!ctype_digit($left))) fail('Enter a valid Left Side page count (0 or more).');
+    if ($pages !== null && (!ctype_digit($pages) || (int)$pages < 1)) fail('Enter a valid Total Pages number (1 or more).');
+
+    $depDb      = $dept !== null ? DEPT_DB[$dept] : null;
+    $rightVal   = $right !== null ? (int)$right : null;
+    $leftVal    = $left !== null ? (int)$left : null;
+    $pagesVal   = $pages !== null ? (int)$pages : null;
+
     $st = $pdo->prepare(
         "INSERT INTO archive_files
          (submitted_by, submit_date, subject_no, subject_number, department, file_no, file_number,
@@ -256,7 +281,7 @@ if ($action === 'submit_file') {
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending')"
     );
     $st->execute([$uid, $submit, $subject, $subject, $depDb, $fileNo, $fileNo, $name,
-                  $start, $end, (int)$pages, (int)$pages, (int)$right, (int)$left,
+                  $start, $end, $pagesVal, $pagesVal, $rightVal, $leftVal,
                   $rackNo, $rackRow, $rackRoman]);
     out(['ok' => true, 'id' => (int)$pdo->lastInsertId()]);
 }
